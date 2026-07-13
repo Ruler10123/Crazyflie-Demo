@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Crazyflie Blocks</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">CF</span>
+          <div>
+            <h1>Crazyflie Blocks</h1>
+            <p id="connectionText">Disconnected</p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-title">
+            <span>1</span>
+            <h2>Connect Drone</h2>
+          </div>
+          <button id="scanButton" class="primary-button">Scan</button>
+          <label class="field">
+            <span>Drone URI</span>
+            <select id="uriSelect">
+              <option value="">Scan first...</option>
+            </select>
+          </label>
+          <div class="button-row">
+            <button id="connectButton" class="primary-button">Connect</button>
+            <button id="disconnectButton" class="ghost-button">Disconnect</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <span>2</span>
+            <h2>Blocks</h2>
+          </div>
+          <div id="blockList" class="block-list">
+            <button class="block fan" draggable="true" data-command="spin_motors">spin fans 1 sec</button>
+            <button class="block motion" draggable="true" data-command="takeoff">take off</button>
+            <button class="block motion" draggable="true" data-command="forward">fly forward 20 cm</button>
+            <button class="block motion" draggable="true" data-command="right">turn right 90 deg</button>
+            <button class="block wait" draggable="true" data-command="wait">wait 1 sec</button>
+            <button class="block stop" draggable="true" data-command="land">land</button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow">Stage</p>
+            <h2 id="stageTitle">Connect your Crazyflie first</h2>
+          </div>
+          <span id="statusBadge" class="status-badge">disconnected</span>
+        </div>
+
+        <div class="stage">
+          <div class="drone-card">
+            <div class="drone-body">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <p id="statusMessage">Ready to scan for Crazyflie.</p>
+          </div>
+        </div>
+
+        <div class="script-area">
+          <div class="script-head">
+            <div>
+              <p class="eyebrow">Script</p>
+              <h2>Drag blocks here</h2>
+            </div>
+            <div class="button-row compact">
+              <button id="runButton" class="primary-button">Run</button>
+              <button id="clearButton" class="ghost-button">Clear</button>
+            </div>
+          </div>
+          <div id="scriptStack" class="script-stack" aria-label="Script workspace">
+            <div id="scriptPlaceholder" class="script-placeholder">Drag blocks from the left toolbox.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
