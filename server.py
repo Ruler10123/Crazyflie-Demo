@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+from blocks import BLOCK_FUNCTIONS
+from drone_check import channels as SCAN_CHANNELS, scan_channels
 
 
 ROOT = Path(__file__).resolve().parent
@@ -98,12 +100,10 @@ class DroneState:
 
         try:
             for command in commands:
-                if command == "spin_motors":
-                    self.spin_motors(scf)
-                elif command == "wait":
-                    time.sleep(1.0)
-                else:
+                function = BLOCK_FUNCTIONS.get(command)
+                if function is None:
                     raise ValueError(f"Block is not implemented yet: {command}")
+                function(scf)
 
             scf.cf.commander.send_stop_setpoint()
             scf.cf.commander.send_notify_setpoint_stop()
@@ -138,10 +138,62 @@ def init_drivers_once():
             DRIVERS_READY = True
 
 
-def scan_interfaces():
+def scan_radio_channels(channels):
     init_drivers_once()
+    scanned = []
+
+    for channel in channels:
+        uri = f"radio://0/{channel}/2M/E7E7E7E7E7"
+        try:
+            cf = Crazyflie(rw_cache=str(CACHE_DIR))
+            with SyncCrazyflie(uri, cf=cf):
+                scanned.append({
+                    "uri": uri,
+                    "channel": channel,
+                    "info": f"Found Crazyflie on channel {channel}",
+                    "found": True,
+                })
+                break
+        except Exception:
+            scanned.append({
+                "uri": uri,
+                "channel": channel,
+                "info": "No Crazyflie found on this channel",
+                "found": False,
+            })
+            continue
+
+    if any(drone.get("found") for drone in scanned):
+        return scanned
+
+    return scanned
+
+
+def scan_radio_channels(channels):
+    # Prefer scan_channels helper from drone_check if available
+    init_drivers_once()
+    try:
+        uri, channel = scan_channels(channels)
+        if uri:
+            return [{"uri": uri, "channel": channel, "info": f"Found Crazyflie on channel {channel}", "found": True}]
+    except Exception:
+        # Fall back to driver-level scan
+        pass
+
+    # Driver-level fallback
     found = cflib.crtp.scan_interfaces()
-    return [{"uri": uri, "info": str(info)} for uri, info in found]
+    if found:
+        return [{"uri": uri, "channel": None, "info": str(info), "found": True} for uri, info in found]
+
+    # Final fallback: report configured channels as not found
+    return [
+        {"uri": f"radio://0/{channel}/2M/E7E7E7E7E7", "channel": channel, "info": "No Crazyflie found on this channel", "found": False}
+        for channel in channels
+    ]
+
+
+def scan_interfaces():
+    return scan_radio_channels(SCAN_CHANNELS)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -156,8 +208,20 @@ class Handler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/scan":
             try:
-                drones = scan_interfaces()
-                STATE.set_status("disconnected", f"Found {len(drones)} Crazyflie interface(s).")
+                drones = scan_radio_channels(SCAN_CHANNELS)
+
+                # If a drone was found, attempt to connect
+                found = next((d for d in drones if d.get("found")), None)
+                if found:
+                    try:
+                        init_drivers_once()
+                        STATE.connect(found["uri"])
+                    except Exception as exc:
+                        STATE.set_status("error", str(exc), found.get("uri"))
+                        self.send_json({"ok": False, "error": str(exc), "status": STATE.as_dict()}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                        return
+
+                STATE.set_status("disconnected", f"Found {sum(1 for d in drones if d.get('found'))} Crazyflie interface(s).")
                 self.send_json({"ok": True, "drones": drones, "status": STATE.as_dict()})
             except Exception as exc:
                 self.send_json(

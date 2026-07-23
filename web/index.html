@@ -23,6 +23,10 @@
             <h2>Connect Drone</h2>
           </div>
           <button id="scanButton" class="primary-button">Scan</button>
+          <div class="status-summary">
+            <span id="statusBadge" class="status-badge disconnected">Disconnected</span>
+            <p id="statusMessage" class="status-message">Ready to scan for Crazyflie.</p>
+          </div>
           <label class="field">
             <span>Drone URI</span>
             <select id="uriSelect">
@@ -40,56 +44,31 @@
             <span>2</span>
             <h2>Blocks</h2>
           </div>
-          <div id="blockList" class="block-list">
-            <button class="block fan" draggable="true" data-command="spin_motors">spin fans 1 sec</button>
-            <button class="block motion" draggable="true" data-command="takeoff">take off</button>
-            <button class="block motion" draggable="true" data-command="forward">fly forward 20 cm</button>
-            <button class="block motion" draggable="true" data-command="right">turn right 90 deg</button>
-            <button class="block wait" draggable="true" data-command="wait">wait 1 sec</button>
-            <button class="block stop" draggable="true" data-command="land">land</button>
-          </div>
+          <div id="blockList" class="block-list"></div>
         </section>
       </aside>
 
-      <section class="workspace">
-        <div class="topbar">
-          <div>
-            <p class="eyebrow">Stage</p>
-            <h2 id="stageTitle">Connect your Crazyflie first</h2>
-          </div>
-          <span id="statusBadge" class="status-badge">disconnected</span>
-        </div>
-
-        <div class="stage">
-          <div class="drone-card">
-            <div class="drone-body">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <p id="statusMessage">Ready to scan for Crazyflie.</p>
-          </div>
-        </div>
-
+      <section id="workspaceArea" class="workspace">
         <div class="script-area">
           <div class="script-head">
             <div>
               <p class="eyebrow">Script</p>
               <h2>Drag blocks here</h2>
-            </div>
-            <div class="button-row compact">
-              <button id="runButton" class="primary-button">Run</button>
-              <button id="clearButton" class="ghost-button">Clear</button>
+              <p id="stageTitle" class="stage-title">Connect your Crazyflie first</p>
             </div>
           </div>
           <div id="scriptStack" class="script-stack" aria-label="Script workspace">
             <div id="scriptPlaceholder" class="script-placeholder">Drag blocks from the left toolbox.</div>
           </div>
         </div>
+        <div class="workspace-controls">
+          <button id="runButton" class="primary-button">Run</button>
+          <button id="clearButton" class="ghost-button">Clear</button>
+        </div>
       </section>
     </main>
 
+    <script src="/blocks.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>
