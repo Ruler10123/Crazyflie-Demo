@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+from cflib.positioning.motion_commander import MotionCommander
 
 from function import BLOCK_FUNCTIONS, identify_drone, stop_drone
 
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parent
 WEB_ROOT = ROOT / "web"
 CACHE_DIR = ROOT / ".cache" / "cflib"
 CONNECT_TIMEOUT_SECONDS = 15
+MOTION_COMMANDS = {"takeoff", "forward", "right", "move_linear_simple"}
 
 
 def close_link_quietly(scf):
@@ -173,18 +175,28 @@ class DroneState:
             self.status = "running"
             self.message = "Running block script..."
 
+        flight = ScriptFlightSession(scf)
         try:
             for entry in commands:
                 command, args = normalize_command_entry(entry)
                 function = BLOCK_FUNCTIONS.get(command)
                 if function is None:
                     raise ValueError(f"Block is not implemented yet: {command}")
-                function(scf, **args)
+                if command == "takeoff":
+                    flight.takeoff(args)
+                elif command in MOTION_COMMANDS:
+                    function(scf, **args, mc=flight.ensure_flying())
+                elif command == "land":
+                    flight.land()
+                else:
+                    function(scf, **args)
 
+            flight.land()
             stop_drone(scf)
             self.set_status("connected", "Finished running blocks.")
             return {"ok": True, "message": "Finished running blocks.", "status": self.as_dict()}
         except Exception:
+            flight.land()
             stop_drone(scf)
             raise
 
@@ -227,6 +239,38 @@ def normalize_command_entry(entry):
         raise ValueError(f"Command args must be an object: {command}")
 
     return command, args
+
+
+class ScriptFlightSession:
+    def __init__(self, scf):
+        self.scf = scf
+        self.mc = None
+
+    def ensure_flying(self, height_m=0.3):
+        if self.mc is None:
+            self.mc = MotionCommander(self.scf, default_height=clamp_script_number(height_m, 0.1, 1.0, 0.3))
+            self.mc.take_off()
+        return self.mc
+
+    def takeoff(self, args):
+        height_m = clamp_script_number(args.get("height_m"), 0.1, 1.0, 0.3)
+        if self.mc is None:
+            self.mc = MotionCommander(self.scf, default_height=height_m)
+            self.mc.take_off(height_m)
+        return self.mc
+
+    def land(self):
+        if self.mc is not None:
+            self.mc.land()
+            self.mc = None
+
+
+def clamp_script_number(value, minimum, maximum, fallback):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = fallback
+    return max(minimum, min(number, maximum))
 
 
 def startup_radio_preflight():

@@ -29,8 +29,7 @@ const DEFAULT_BLOCK_DEFINITIONS = [
     style: "motion",
     description: "Take off and hover briefly.",
     inputs: [
-      { name: "duration_seconds", label: "sec", type: "number", value: 2, min: 0.2, max: 4, step: 0.1 },
-      { name: "thrust", label: "thrust", type: "number", value: 12000, min: 10001, max: 18000, step: 100 },
+      { name: "height_m", label: "m", type: "number", value: 0.3, min: 0.1, max: 1, step: 0.1 },
     ],
   },
   {

@@ -51,7 +51,7 @@ http://127.0.0.1:8765
 
 Connecting also sends a shorter low-thrust identify pulse. Keep the Crazyflie flat and clear of hands before connecting.
 
-Blocks with numbers include editable fields. The backend clamps values to conservative ranges before sending commands to the Crazyflie.
+Blocks with numbers include editable fields. Takeoff height, forward distance, and turn angle use `MotionCommander` so the values map to meters, centimeters, and degrees. The backend clamps values to conservative ranges before sending commands to the Crazyflie.
 
 ## Notes
 
