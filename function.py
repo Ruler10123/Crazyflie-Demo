@@ -18,7 +18,7 @@ def stop_drone(scf):
 
 def spin_motors(scf, thrust=12000, duration_seconds=1.0):
     thrust = int(clamp_number(thrust, 10001, 18000, 12000))
-    duration_seconds = clamp_number(duration_seconds, 0.1, 1.5, 1.0)
+    duration_seconds = clamp_number(duration_seconds, 0.1, 50.0, 1.0)
     end_time = time.monotonic() + duration_seconds
     while time.monotonic() < end_time:
         scf.cf.commander.send_setpoint(0.0, 0.0, 0.0, thrust)

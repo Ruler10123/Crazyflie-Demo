@@ -65,18 +65,6 @@ class DroneState:
 
     def connect(self, uri):
         with self.lock:
-            if self.scf is not None and self.uri == uri:
-                status = {
-                    "status": self.status,
-                    "uri": self.uri,
-                    "message": self.message,
-                    "connected": True,
-                }
-                return {
-                    "ok": True,
-                    "message": f"Already connected to {self.uri}.",
-                    "status": status,
-                }
             needs_disconnect = self.scf is not None
 
         if needs_disconnect:

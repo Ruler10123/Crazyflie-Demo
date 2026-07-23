@@ -11,7 +11,7 @@ window.BLOCK_DEFINITIONS = [
     style: "fan",
     description: "Spin the motors for one second.",
     inputs: [
-      { name: "duration_seconds", label: "sec", type: "number", value: 1, min: 0.1, max: 1.5, step: 0.1 },
+      { name: "duration_seconds", label: "sec", type: "number", value: 1, min: 0.1, max: 50, step: 0.1 },
     ],
   },
   {
