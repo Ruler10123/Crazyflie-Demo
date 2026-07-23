@@ -84,6 +84,19 @@ class DroneState:
 
         return {"ok": True, "message": f"Disconnected from {uri}." if uri else "Disconnected.", "status": self.as_dict()}
 
+    def stop(self):
+        with self.lock:
+            scf = self.scf
+            if scf is None:
+                self.status = "disconnected"
+                self.message = "No Crazyflie is connected."
+                return {"ok": True, "message": self.message, "status": self.as_dict()}
+
+        scf.cf.commander.send_stop_setpoint()
+        scf.cf.commander.send_notify_setpoint_stop()
+        self.set_status("connected", "Stopped.")
+        return {"ok": True, "message": "Stopped.", "status": self.as_dict()}
+
     def run_script(self, commands):
         with self.lock:
             scf = self.scf
@@ -206,6 +219,17 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as exc:
                 self.send_json(
                     {"ok": False, "error": str(exc), "status": STATE.as_dict()},
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
+            return
+
+        if parsed.path == "/api/stop":
+            try:
+                self.send_json(STATE.stop())
+            except Exception as exc:
+                STATE.set_status("error", str(exc))
+                self.send_json(
+                    {"ok": False, "error": str(exc), "trace": traceback.format_exc(), "status": STATE.as_dict()},
                     HTTPStatus.INTERNAL_SERVER_ERROR,
                 )
             return

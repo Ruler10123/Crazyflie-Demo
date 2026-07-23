@@ -8,7 +8,8 @@ const connectionText = document.querySelector("#connectionText");
 const blockList = document.querySelector("#blockList");
 const scriptStack = document.querySelector("#scriptStack");
 const scriptPlaceholder = document.querySelector("#scriptPlaceholder");
-const runButton = document.querySelector("#runButton");
+const startButton = document.querySelector("#startButton");
+const stopButton = document.querySelector("#stopButton");
 const clearButton = document.querySelector("#clearButton");
 
 const SNAP_GAP = 8;
@@ -47,7 +48,8 @@ function setBusy(isBusy) {
   scanButton.disabled = isBusy;
   connectButton.disabled = isBusy;
   disconnectButton.disabled = isBusy;
-  runButton.disabled = isBusy || !connected;
+  startButton.disabled = isBusy || !connected;
+  stopButton.disabled = isBusy || !connected;
 }
 
 function renderStatus(status) {
@@ -57,7 +59,8 @@ function renderStatus(status) {
   statusMessage.textContent = status.message;
   connectionText.textContent = getConnectionLabel(status);
   connectionText.title = status.connected && status.uri ? status.uri : "";
-  runButton.disabled = !status.connected;
+  startButton.disabled = !status.connected;
+  stopButton.disabled = !status.connected;
   scriptStack.classList.toggle("connected", status.connected);
 
   if (status.connected && status.uri) {
@@ -395,7 +398,7 @@ clearButton.addEventListener("click", () => {
   updatePlaceholder();
 });
 
-runButton.addEventListener("click", async () => {
+async function runCurrentScript() {
   if (!connected) {
     renderStatus({ status: "error", message: "Connect the Crazyflie before running blocks.", connected: false, uri: null });
     return;
@@ -430,6 +433,26 @@ runButton.addEventListener("click", async () => {
       method: "POST",
       body: JSON.stringify({ commands: script }),
     });
+    renderStatus(payload.status);
+  } catch (error) {
+    renderStatus({ status: "error", message: error.message, connected, uri: uriSelect.value });
+  } finally {
+    setBusy(false);
+  }
+}
+
+startButton.addEventListener("click", runCurrentScript);
+
+stopButton.addEventListener("click", async () => {
+  if (!connected) {
+    renderStatus({ status: "error", message: "Connect the Crazyflie before stopping.", connected: false, uri: null });
+    return;
+  }
+
+  setBusy(true);
+  statusMessage.textContent = "Stopping...";
+  try {
+    const payload = await requestJson("/api/stop", { method: "POST" });
     renderStatus(payload.status);
   } catch (error) {
     renderStatus({ status: "error", message: error.message, connected, uri: uriSelect.value });

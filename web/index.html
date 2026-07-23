@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crazyflie Blocks</title>
-    <link rel="stylesheet" href="/styles.css?v=20260723c">
+    <link rel="stylesheet" href="/styles.css?v=20260723g">
   </head>
   <body>
     <main class="app-shell">
@@ -49,19 +49,29 @@
       </aside>
 
       <section id="workspaceArea" class="workspace">
+        <div class="stage-controls" aria-label="Script controls">
+          <button id="startButton" class="icon-button start-control" type="button" title="Start">
+            <span class="flag-icon" aria-hidden="true"></span>
+            <span class="sr-only">Start</span>
+          </button>
+          <button id="stopButton" class="icon-button stop-control" type="button" title="Stop">
+            <span class="stop-icon" aria-hidden="true"></span>
+            <span class="sr-only">Stop</span>
+          </button>
+          <button id="clearButton" class="icon-button clear-control" type="button" title="Clear">
+            <span class="trash-icon" aria-hidden="true"></span>
+            <span class="sr-only">Clear</span>
+          </button>
+        </div>
         <div class="script-area">
           <div id="scriptStack" class="script-stack" aria-label="Script workspace">
             <div id="scriptPlaceholder" class="script-placeholder">Drag blocks from the left toolbox.</div>
           </div>
         </div>
-        <div class="workspace-controls">
-          <button id="runButton" class="primary-button">Run</button>
-          <button id="clearButton" class="ghost-button">Clear</button>
-        </div>
       </section>
     </main>
 
-    <script src="/blocks.js?v=20260723c"></script>
-    <script src="/app.js?v=20260723c"></script>
+    <script src="/blocks.js?v=20260723g"></script>
+    <script src="/app.js?v=20260723g"></script>
   </body>
 </html>
