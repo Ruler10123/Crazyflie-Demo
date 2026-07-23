@@ -25,10 +25,16 @@ CONNECT_TIMEOUT_SECONDS = 15
 def close_link_quietly(scf):
     if scf is None:
         return
-    try:
-        scf.close_link()
-    except Exception:
-        pass
+
+    def _close():
+        try:
+            scf.close_link()
+        except Exception:
+            pass
+
+    close_thread = threading.Thread(target=_close, daemon=True)
+    close_thread.start()
+    close_thread.join(CONNECT_TIMEOUT_SECONDS)
 
 
 class DroneState:
@@ -57,7 +63,7 @@ class DroneState:
 
     def connect(self, uri):
         with self.lock:
-            if self.scf is not None:
+            if self.scf is not None and self.uri == uri:
                 status = {
                     "status": self.status,
                     "uri": self.uri,
@@ -69,6 +75,12 @@ class DroneState:
                     "message": f"Already connected to {self.uri}.",
                     "status": status,
                 }
+            needs_disconnect = self.scf is not None
+
+        if needs_disconnect:
+            self.disconnect()
+
+        with self.lock:
             self.status = "connecting"
             self.message = f"Connecting to {uri}..."
             self.uri = uri
