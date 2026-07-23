@@ -30,7 +30,12 @@ def close_link_quietly(scf):
 
     def _close():
         try:
-            scf.close_link()
+            # Close at the Crazyflie (cf) level, not scf.close_link(): the Sync
+            # wrapper no-ops unless the handshake fully completed, so a timed-out
+            # or half-open link would otherwise leak the radio driver (keeping the
+            # dongle claimed and the drone busy). cf.close_link() closes the driver
+            # unconditionally and is idempotent when already closed.
+            scf.cf.close_link()
         except Exception:
             pass
 

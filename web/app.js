@@ -63,6 +63,8 @@ const DEFAULT_BLOCK_DEFINITIONS = [
     description: "Pause the script for one second.",
     inputs: [{ name: "duration_seconds", label: "sec", type: "number", value: 1, min: 0.1, max: 10, step: 0.1 }],
   },
+  { command: "take_off_simple", label: "take off simple", style: "motion", description: "Take off, hover for 3 seconds, then land." },
+  { command: "move_box_limit", label: "move in box limit", style: "motion", description: "Fly within a 0.5m box using the flow deck's position estimate (needs a flow deck)." },
   { command: "land", label: "land", style: "stop", description: "Land the Crazyflie safely." },
 ];
 

@@ -52,6 +52,18 @@ window.BLOCK_DEFINITIONS = [
     ],
   },
   {
+    command: "take_off_simple",
+    label: "take off simple",
+    style: "motion",
+    description: "Take off, hover for 3 seconds, then land.",
+  },
+  {
+    command: "move_box_limit",
+    label: "move in box limit",
+    style: "motion",
+    description: "Fly within a 0.5m box using the flow deck's position estimate (needs a flow deck).",
+  },
+  {
     command: "wait",
     label: "wait",
     style: "wait",
