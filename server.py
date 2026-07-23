@@ -3,13 +3,13 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import threading
-import time
 import traceback
 from urllib.parse import urlparse
 
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+from function import BLOCK_FUNCTIONS, stop_drone
 
 
 ROOT = Path(__file__).resolve().parent
@@ -92,8 +92,7 @@ class DroneState:
                 self.message = "No Crazyflie is connected."
                 return {"ok": True, "message": self.message, "status": self.as_dict()}
 
-        scf.cf.commander.send_stop_setpoint()
-        scf.cf.commander.send_notify_setpoint_stop()
+        stop_drone(scf)
         self.set_status("connected", "Stopped.")
         return {"ok": True, "message": "Stopped.", "status": self.as_dict()}
 
@@ -111,30 +110,17 @@ class DroneState:
 
         try:
             for command in commands:
-                if command == "spin_motors":
-                    self.spin_motors(scf)
-                elif command == "wait":
-                    time.sleep(1.0)
-                else:
+                function = BLOCK_FUNCTIONS.get(command)
+                if function is None:
                     raise ValueError(f"Block is not implemented yet: {command}")
+                function(scf)
 
-            scf.cf.commander.send_stop_setpoint()
-            scf.cf.commander.send_notify_setpoint_stop()
+            stop_drone(scf)
             self.set_status("connected", "Finished running blocks.")
             return {"ok": True, "message": "Finished running blocks.", "status": self.as_dict()}
         except Exception:
-            scf.cf.commander.send_stop_setpoint()
-            scf.cf.commander.send_notify_setpoint_stop()
+            stop_drone(scf)
             raise
-
-    def spin_motors(self, scf, thrust=12000, duration_seconds=1.0):
-        thrust = max(10001, min(int(thrust), 18000))
-        end_time = time.monotonic() + min(duration_seconds, 1.5)
-        while time.monotonic() < end_time:
-            scf.cf.commander.send_setpoint(0.0, 0.0, 0.0, thrust)
-            time.sleep(0.05)
-        scf.cf.commander.send_setpoint(0.0, 0.0, 0.0, 0)
-        time.sleep(0.1)
 
 
 STATE = DroneState()
