@@ -5,15 +5,30 @@ const uriSelect = document.querySelector("#uriSelect");
 const statusBadge = document.querySelector("#statusBadge");
 const statusMessage = document.querySelector("#statusMessage");
 const connectionText = document.querySelector("#connectionText");
-const stageTitle = document.querySelector("#stageTitle");
-const blocks = Array.from(document.querySelectorAll(".block"));
+const blockList = document.querySelector("#blockList");
 const scriptStack = document.querySelector("#scriptStack");
 const scriptPlaceholder = document.querySelector("#scriptPlaceholder");
 const runButton = document.querySelector("#runButton");
 const clearButton = document.querySelector("#clearButton");
 
+const SNAP_GAP = 8;
+const SNAP_THRESHOLD = 32;
+const DEFAULT_BLOCK_DEFINITIONS = [
+  { command: "start", label: "start", style: "start", description: "Start the program from here." },
+  { command: "spin_motors", label: "spin fans 1 sec", style: "fan", description: "Spin the motors for one second." },
+  { command: "takeoff", label: "take off", style: "motion", description: "Take off and hover briefly." },
+  { command: "forward", label: "fly forward 20 cm", style: "motion", description: "Fly the Crazyflie forward 20 centimeters." },
+  { command: "right", label: "turn right 90 deg", style: "motion", description: "Rotate the Crazyflie 90 degrees to the right." },
+  { command: "wait", label: "wait 1 sec", style: "wait", description: "Pause the script for one second." },
+  { command: "land", label: "land", style: "stop", description: "Land the Crazyflie safely." },
+];
+
+const blocks = [];
 let connected = false;
-let draggedBlock = null;
+let activeDragBlock = null;
+let activeDragPointerId = null;
+let dragOffset = { x: 0, y: 0 };
+let dragSource = null;
 let blockCounter = 0;
 
 async function requestJson(path, options = {}) {
@@ -40,10 +55,32 @@ function renderStatus(status) {
   statusBadge.textContent = status.status;
   statusBadge.className = `status-badge ${status.status}`;
   statusMessage.textContent = status.message;
-  connectionText.textContent = status.connected ? status.uri : "Disconnected";
-  stageTitle.textContent = status.connected ? "Ready for blocks" : "Connect your Crazyflie first";
+  connectionText.textContent = getConnectionLabel(status);
+  connectionText.title = status.connected && status.uri ? status.uri : "";
   runButton.disabled = !status.connected;
   scriptStack.classList.toggle("connected", status.connected);
+
+  if (status.connected && status.uri) {
+    ensureUriOption(status.uri);
+  }
+}
+
+function getConnectionLabel(status) {
+  if (status.connected) return "Connected";
+  if (status.status === "connecting") return "Connecting";
+  if (status.status === "error") return "Connection error";
+  return "Disconnected";
+}
+
+function ensureUriOption(uri) {
+  const hasOption = Array.from(uriSelect.options).some((option) => option.value === uri);
+  if (!hasOption) {
+    const option = document.createElement("option");
+    option.value = uri;
+    option.textContent = uri;
+    uriSelect.append(option);
+  }
+  uriSelect.value = uri;
 }
 
 function renderDrones(drones) {
@@ -59,8 +96,30 @@ function renderDrones(drones) {
   drones.forEach((drone) => {
     const option = document.createElement("option");
     option.value = drone.uri;
-    option.textContent = drone.uri;
+    option.textContent = drone.info ? `${drone.uri} (${drone.info})` : drone.uri;
+    if (drone.found) {
+      option.selected = true;
+    }
     uriSelect.append(option);
+  });
+}
+
+function renderBlockToolbox() {
+  const definitions = Array.isArray(window.BLOCK_DEFINITIONS) ? window.BLOCK_DEFINITIONS : DEFAULT_BLOCK_DEFINITIONS;
+  blocks.length = 0;
+  blockList.innerHTML = "";
+
+  definitions.forEach((definition) => {
+    const button = document.createElement("button");
+    button.className = `block ${definition.style}`;
+    button.draggable = false;
+    button.dataset.command = definition.command;
+    button.title = definition.description || "";
+    button.type = "button";
+    button.textContent = definition.label;
+    button.addEventListener("pointerdown", startToolboxDrag);
+    blockList.append(button);
+    blocks.push(button);
   });
 }
 
@@ -116,7 +175,10 @@ function makeScriptBlock(sourceBlock) {
   const block = sourceBlock.cloneNode(true);
   block.id = `script-block-${blockCounter}`;
   block.classList.add("script-block");
-  block.draggable = true;
+  block.style.position = "absolute";
+  block.style.left = "24px";
+  block.style.top = "24px";
+  block.draggable = false;
   block.disabled = false;
   block.dataset.scriptId = String(blockCounter);
   blockCounter += 1;
@@ -131,18 +193,8 @@ function makeScriptBlock(sourceBlock) {
   });
 
   block.append(removeButton);
-  bindScriptDrag(block);
+  block.addEventListener("pointerdown", startScriptBlockDrag);
   return block;
-}
-
-function addBlockToScript(sourceBlock, beforeBlock = null) {
-  const block = makeScriptBlock(sourceBlock);
-  if (beforeBlock) {
-    scriptStack.insertBefore(block, beforeBlock);
-  } else {
-    scriptStack.append(block);
-  }
-  updatePlaceholder();
 }
 
 function updatePlaceholder() {
@@ -150,77 +202,193 @@ function updatePlaceholder() {
   scriptPlaceholder.hidden = hasBlocks;
 }
 
-function getBlockAfter(pointerY) {
-  const scriptBlocks = Array.from(scriptStack.querySelectorAll(".script-block:not(.dragging)"));
-  return scriptBlocks.reduce(
-    (closest, block) => {
-      const box = block.getBoundingClientRect();
-      const offset = pointerY - box.top - box.height / 2;
-      if (offset < 0 && offset > closest.offset) {
-        return { offset, block };
-      }
-      return closest;
-    },
-    { offset: Number.NEGATIVE_INFINITY, block: null },
-  ).block;
-}
+function getSnappedPosition(block, x, y) {
+  const existingBlocks = Array.from(scriptStack.querySelectorAll(".script-block")).filter((candidate) => candidate !== block);
+  let best = { x, y, distance: Infinity, snapSide: null, target: null };
 
-function bindScriptDrag(block) {
-  block.addEventListener("dragstart", () => {
-    draggedBlock = block;
-    block.classList.add("dragging");
-  });
+  const blockWidth = block.offsetWidth;
+  const blockLeft = x;
+  const blockRight = x + blockWidth;
 
-  block.addEventListener("dragend", () => {
-    block.classList.remove("dragging");
-    draggedBlock = null;
-    updatePlaceholder();
-  });
-}
+  existingBlocks.forEach((candidate) => {
+    const rect = candidate.getBoundingClientRect();
+    const stackRect = scriptStack.getBoundingClientRect();
+    const candidateX = rect.left - stackRect.left;
+    const candidateY = rect.top - stackRect.top;
+    const candidateWidth = rect.width;
+    const candidateLeft = candidateX;
+    const candidateRight = candidateX + candidateWidth;
 
-blocks.forEach((block) => {
-  block.addEventListener("dragstart", (event) => {
-    draggedBlock = block;
-    event.dataTransfer.setData("text/plain", block.dataset.command);
-    event.dataTransfer.effectAllowed = "copy";
-  });
+    const overlap = Math.min(blockRight, candidateRight) - Math.max(blockLeft, candidateLeft);
+    const horizontalMatch = overlap > Math.min(blockWidth, candidateWidth) * 0.4;
+    const edgeNear = Math.abs(blockLeft - candidateRight) < SNAP_THRESHOLD || Math.abs(blockRight - candidateLeft) < SNAP_THRESHOLD;
+    if (!horizontalMatch && !edgeNear) return;
 
-  block.addEventListener("dragend", () => {
-    draggedBlock = null;
-  });
+    const bottomY = candidateY + rect.height + SNAP_GAP;
+    const topY = candidateY - block.offsetHeight - SNAP_GAP;
+    const bottomDistance = Math.abs(bottomY - y);
+    const topDistance = Math.abs(topY - y);
 
-  block.addEventListener("click", () => {
-    addBlockToScript(block);
-  });
-});
-
-scriptStack.addEventListener("dragover", (event) => {
-  event.preventDefault();
-  const afterBlock = getBlockAfter(event.clientY);
-  if (draggedBlock && draggedBlock.classList.contains("script-block")) {
-    if (afterBlock) {
-      scriptStack.insertBefore(draggedBlock, afterBlock);
-    } else {
-      scriptStack.append(draggedBlock);
+    if (bottomDistance < best.distance && bottomDistance < SNAP_THRESHOLD) {
+      best = { x: candidateX, y: bottomY, distance: bottomDistance, snapSide: "bottom", target: candidate };
     }
+    if (topDistance < best.distance && topDistance < SNAP_THRESHOLD) {
+      best = { x: candidateX, y: topY, distance: topDistance, snapSide: "top", target: candidate };
+    }
+  });
+
+  if (best.target) {
+    showSnapPreview(best.target, best.snapSide);
+    return best;
   }
-  scriptStack.classList.add("drag-over");
-});
 
-scriptStack.addEventListener("dragleave", () => {
-  scriptStack.classList.remove("drag-over");
-});
+  hideSnapPreview();
+  return { x, y };
+}
 
-scriptStack.addEventListener("drop", (event) => {
+function startToolboxDrag(event) {
+  if (event.button !== 0) return;
+  const source = event.currentTarget;
+  const sourceRect = source.getBoundingClientRect();
+  dragSource = source;
+
+  const block = makeScriptBlock(source);
+  block.classList.add("floating-block", "dragging");
+  block.style.position = "fixed";
+  block.style.left = `${sourceRect.left}px`;
+  block.style.top = `${sourceRect.top}px`;
+  block.style.width = `${sourceRect.width}px`;
+  block.style.opacity = "0.92";
+  document.body.append(block);
+
+  activeDragBlock = block;
+  activeDragPointerId = event.pointerId;
+  dragOffset = {
+    x: event.clientX - sourceRect.left,
+    y: event.clientY - sourceRect.top,
+  };
+  document.addEventListener("pointermove", moveActiveDragBlock);
+  document.addEventListener("pointerup", endActiveDragBlock);
+  document.addEventListener("pointercancel", endActiveDragBlock);
   event.preventDefault();
-  scriptStack.classList.remove("drag-over");
-  if (!draggedBlock || draggedBlock.classList.contains("script-block")) {
-    updatePlaceholder();
+}
+
+function startScriptBlockDrag(event) {
+  if (event.button !== 0) return;
+  if (event.target.classList.contains("remove-block")) return;
+
+  const block = event.currentTarget;
+  activeDragBlock = block;
+  activeDragPointerId = event.pointerId;
+  dragOffset = {
+    x: event.clientX - block.getBoundingClientRect().left,
+    y: event.clientY - block.getBoundingClientRect().top,
+  };
+  block.classList.add("dragging");
+  document.addEventListener("pointermove", moveActiveDragBlock);
+  document.addEventListener("pointerup", endActiveDragBlock);
+  document.addEventListener("pointercancel", endActiveDragBlock);
+  event.preventDefault();
+}
+
+function moveActiveDragBlock(event) {
+  if (!activeDragBlock || event.pointerId !== activeDragPointerId) return;
+  const rect = scriptStack.getBoundingClientRect();
+
+  if (dragSource) {
+    activeDragBlock.style.left = `${event.clientX - dragOffset.x}px`;
+    activeDragBlock.style.top = `${event.clientY - dragOffset.y}px`;
+
+    if (isPointInStage(event)) {
+      const rawX = event.clientX - rect.left - dragOffset.x;
+      const rawY = event.clientY - rect.top - dragOffset.y;
+      const boundedX = Math.max(0, Math.min(rawX, rect.width - activeDragBlock.offsetWidth));
+      const boundedY = Math.max(0, Math.min(rawY, rect.height - activeDragBlock.offsetHeight));
+      getSnappedPosition(activeDragBlock, boundedX, boundedY);
+      scriptStack.classList.add("drag-over");
+    } else {
+      hideSnapPreview();
+      scriptStack.classList.remove("drag-over");
+    }
     return;
   }
 
-  addBlockToScript(draggedBlock, getBlockAfter(event.clientY));
-});
+  const rawX = event.clientX - rect.left - dragOffset.x;
+  const rawY = event.clientY - rect.top - dragOffset.y;
+  const boundedX = Math.max(0, Math.min(rawX, rect.width - activeDragBlock.offsetWidth));
+  const boundedY = Math.max(0, Math.min(rawY, rect.height - activeDragBlock.offsetHeight));
+  const snapped = getSnappedPosition(activeDragBlock, boundedX, boundedY);
+  activeDragBlock.style.left = `${snapped.x}px`;
+  activeDragBlock.style.top = `${snapped.y}px`;
+}
+
+function showSnapPreview(targetBlock, side) {
+  hideSnapPreview();
+  if (!targetBlock || !side || !activeDragBlock) return;
+
+  const preview = document.createElement("div");
+  preview.className = "snap-preview";
+  preview.dataset.snapTarget = targetBlock.dataset.scriptId;
+  preview.dataset.snapSide = side;
+
+  const targetRect = targetBlock.getBoundingClientRect();
+  const stackRect = scriptStack.getBoundingClientRect();
+  const left = targetRect.left - stackRect.left;
+  const top = targetRect.top - stackRect.top;
+
+  preview.style.left = `${left}px`;
+  preview.style.width = `${targetRect.width}px`;
+  preview.style.height = `${activeDragBlock.offsetHeight}px`;
+  preview.style.top = side === "bottom" ? `${top + targetRect.height + 4}px` : `${top - activeDragBlock.offsetHeight - 4}px`;
+  scriptStack.append(preview);
+}
+
+function hideSnapPreview() {
+  scriptStack.querySelectorAll(".snap-preview").forEach((preview) => preview.remove());
+}
+
+function endActiveDragBlock(event) {
+  if (!activeDragBlock || event.pointerId !== activeDragPointerId) return;
+
+  document.removeEventListener("pointermove", moveActiveDragBlock);
+  document.removeEventListener("pointerup", endActiveDragBlock);
+  document.removeEventListener("pointercancel", endActiveDragBlock);
+  hideSnapPreview();
+
+  if (!isPointInStage(event)) {
+    activeDragBlock.remove();
+  } else if (dragSource) {
+    const rect = scriptStack.getBoundingClientRect();
+    const rawX = event.clientX - rect.left - dragOffset.x;
+    const rawY = event.clientY - rect.top - dragOffset.y;
+    const boundedX = Math.max(0, Math.min(rawX, rect.width - activeDragBlock.offsetWidth));
+    const boundedY = Math.max(0, Math.min(rawY, rect.height - activeDragBlock.offsetHeight));
+    const snapped = getSnappedPosition(activeDragBlock, boundedX, boundedY);
+    hideSnapPreview();
+
+    activeDragBlock.classList.remove("floating-block", "dragging");
+    activeDragBlock.style.position = "absolute";
+    activeDragBlock.style.width = "";
+    activeDragBlock.style.left = `${snapped.x}px`;
+    activeDragBlock.style.top = `${snapped.y}px`;
+    activeDragBlock.style.opacity = "1";
+    scriptStack.append(activeDragBlock);
+  } else {
+    activeDragBlock.style.opacity = "1";
+    activeDragBlock.classList.remove("dragging");
+  }
+
+  scriptStack.classList.remove("drag-over");
+  activeDragBlock = null;
+  activeDragPointerId = null;
+  dragSource = null;
+  updatePlaceholder();
+}
+
+function isPointInStage(event) {
+  const rect = scriptStack.getBoundingClientRect();
+  return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+}
 
 clearButton.addEventListener("click", () => {
   scriptStack.querySelectorAll(".script-block").forEach((block) => block.remove());
@@ -228,13 +396,30 @@ clearButton.addEventListener("click", () => {
 });
 
 runButton.addEventListener("click", async () => {
-  const script = Array.from(scriptStack.querySelectorAll(".script-block")).map((block) => block.dataset.command);
   if (!connected) {
     renderStatus({ status: "error", message: "Connect the Crazyflie before running blocks.", connected: false, uri: null });
     return;
   }
+
+  const blocksInStack = Array.from(scriptStack.querySelectorAll(".script-block"));
+  if (blocksInStack.length === 0) {
+    statusMessage.textContent = "Add a start block and some commands before running.";
+    return;
+  }
+
+  const sortedBlocks = blocksInStack.slice().sort((a, b) => {
+    return parseInt(a.style.top || "0", 10) - parseInt(b.style.top || "0", 10);
+  });
+
+  const startIndex = sortedBlocks.findIndex((block) => block.dataset.command === "start");
+  if (startIndex === -1) {
+    statusMessage.textContent = "Place a start block at the top of the script before running.";
+    return;
+  }
+
+  const script = sortedBlocks.slice(startIndex + 1).map((block) => block.dataset.command).filter(Boolean);
   if (script.length === 0) {
-    statusMessage.textContent = "Add at least one block first.";
+    statusMessage.textContent = "Add blocks below the start block before running.";
     return;
   }
 
@@ -247,11 +432,13 @@ runButton.addEventListener("click", async () => {
     });
     renderStatus(payload.status);
   } catch (error) {
-    renderStatus({ status: "error", message: error.message, connected, uri: connectionText.textContent });
+    renderStatus({ status: "error", message: error.message, connected, uri: uriSelect.value });
   } finally {
     setBusy(false);
   }
 });
+
+renderBlockToolbox();
 
 requestJson("/api/status")
   .then(renderStatus)
