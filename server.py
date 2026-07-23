@@ -1,7 +1,10 @@
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import atexit
 import json
 from pathlib import Path
+import signal
+import sys
 import threading
 import traceback
 from urllib.parse import urlparse
@@ -17,6 +20,15 @@ ROOT = Path(__file__).resolve().parent
 WEB_ROOT = ROOT / "web"
 CACHE_DIR = ROOT / ".cache" / "cflib"
 CONNECT_TIMEOUT_SECONDS = 15
+
+
+def close_link_quietly(scf):
+    if scf is None:
+        return
+    try:
+        scf.close_link()
+    except Exception:
+        pass
 
 
 class DroneState:
@@ -77,14 +89,17 @@ class DroneState:
         open_thread.join(CONNECT_TIMEOUT_SECONDS)
 
         if open_thread.is_alive():
+            close_link_quietly(scf)
             message = (
                 f"Connecting to {uri} timed out after {CONNECT_TIMEOUT_SECONDS}s. "
-                "Power-cycle the Crazyflie and try again."
+                "Power-cycle the Crazyflie, unplug/replug the Crazyradio dongle, "
+                "and try again."
             )
             self.set_status("error", message, uri)
             raise TimeoutError(message)
 
         if error_box:
+            close_link_quietly(scf)
             raise error_box[0]
 
         with self.lock:
@@ -104,7 +119,7 @@ class DroneState:
             self.message = "Disconnected."
 
         if scf is not None:
-            scf.close_link()
+            close_link_quietly(scf)
 
         return {"ok": True, "message": f"Disconnected from {uri}." if uri else "Disconnected.", "status": self.as_dict()}
 
@@ -150,6 +165,7 @@ class DroneState:
 STATE = DroneState()
 DRIVERS_READY = False
 DRIVERS_LOCK = threading.Lock()
+SHUTTING_DOWN = False
 
 
 def init_drivers_once():
@@ -165,6 +181,38 @@ def scan_interfaces():
     init_drivers_once()
     found = cflib.crtp.scan_interfaces()
     return [{"uri": uri, "info": str(info)} for uri, info in found]
+
+
+def startup_radio_preflight():
+    try:
+        drones = scan_interfaces()
+    except Exception as exc:
+        print("Crazyradio preflight failed.")
+        print(f"Reason: {exc}")
+        print("Close other Crazyflie/Python/ROS programs, unplug/replug the dongle, then scan again.")
+        return
+
+    if drones:
+        print(f"Crazyradio preflight found {len(drones)} Crazyflie interface(s).")
+    else:
+        print("Crazyradio preflight found no Crazyflie interfaces yet.")
+        print("Make sure the Crazyflie is powered on, then use Scan in the web page.")
+
+
+def shutdown_cleanly(signum, _frame):
+    global SHUTTING_DOWN
+    if SHUTTING_DOWN:
+        sys.exit(128 + signum)
+    SHUTTING_DOWN = True
+    STATE.disconnect()
+    sys.exit(128 + signum)
+
+
+def install_shutdown_handlers():
+    for signal_name in ("SIGTERM", "SIGHUP"):
+        signum = getattr(signal, signal_name, None)
+        if signum is not None:
+            signal.signal(signum, shutdown_cleanly)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -285,6 +333,9 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     host = "127.0.0.1"
     port = 8765
+    atexit.register(STATE.disconnect)
+    install_shutdown_handlers()
+    startup_radio_preflight()
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"Crazyflie Scratch control: http://{host}:{port}")
     print("Keep this terminal open while using the web page.")
