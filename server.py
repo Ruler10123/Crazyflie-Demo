@@ -9,12 +9,14 @@ from urllib.parse import urlparse
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+
 from function import BLOCK_FUNCTIONS, stop_drone
 
 
 ROOT = Path(__file__).resolve().parent
 WEB_ROOT = ROOT / "web"
 CACHE_DIR = ROOT / ".cache" / "cflib"
+CONNECT_TIMEOUT_SECONDS = 15
 
 
 class DroneState:
@@ -61,7 +63,29 @@ class DroneState:
 
         cf = Crazyflie(rw_cache=str(CACHE_DIR))
         scf = SyncCrazyflie(uri, cf=cf)
-        scf.open_link()
+
+        error_box = []
+
+        def _open():
+            try:
+                scf.open_link()
+            except Exception as exc:
+                error_box.append(exc)
+
+        open_thread = threading.Thread(target=_open, daemon=True)
+        open_thread.start()
+        open_thread.join(CONNECT_TIMEOUT_SECONDS)
+
+        if open_thread.is_alive():
+            message = (
+                f"Connecting to {uri} timed out after {CONNECT_TIMEOUT_SECONDS}s. "
+                "Power-cycle the Crazyflie and try again."
+            )
+            self.set_status("error", message, uri)
+            raise TimeoutError(message)
+
+        if error_box:
+            raise error_box[0]
 
         with self.lock:
             self.scf = scf
@@ -264,7 +288,12 @@ def main():
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"Crazyflie Scratch control: http://{host}:{port}")
     print("Keep this terminal open while using the web page.")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        STATE.disconnect()
 
 
 if __name__ == "__main__":

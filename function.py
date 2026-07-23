@@ -1,5 +1,7 @@
 import time
 
+from motion_blocks import move_linear_simple
+
 
 def stop_drone(scf):
     scf.cf.commander.send_stop_setpoint()
@@ -60,4 +62,5 @@ BLOCK_FUNCTIONS = {
     "forward": forward,
     "right": right,
     "land": land,
+    "move_linear_simple": move_linear_simple,
 }

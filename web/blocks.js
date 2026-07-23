@@ -30,6 +30,12 @@ window.BLOCK_DEFINITIONS = [
     description: "Rotate the Crazyflie 90 degrees to the right.",
   },
   {
+    command: "move_linear_simple",
+    label: "move linear simple",
+    style: "motion",
+    description: "Fly forward 0.5m, turn 180 degrees, fly forward 0.5m.",
+  },
+  {
     command: "wait",
     label: "wait 1 sec",
     style: "wait",
