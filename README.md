@@ -43,11 +43,13 @@ http://127.0.0.1:8765
 2. Power on the Crazyflie.
 3. Click `Scan`.
 4. Select the Crazyflie URI.
-5. Click `Connect`.
+5. Click `Connect`. The Crazyflie will briefly spin its motors to identify itself.
 6. Drag blocks into the script area.
 7. Click `Run`.
 
 `spin fans 1 sec` sends a short low-thrust motor test. For the first test, remove the propellers or keep the drone flat and clear of hands.
+
+Connecting also sends a shorter low-thrust identify pulse. Keep the Crazyflie flat and clear of hands before connecting.
 
 ## Notes
 

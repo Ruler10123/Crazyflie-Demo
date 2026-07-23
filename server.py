@@ -13,7 +13,7 @@ import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 
-from function import BLOCK_FUNCTIONS, stop_drone
+from function import BLOCK_FUNCTIONS, identify_drone, stop_drone
 
 
 ROOT = Path(__file__).resolve().parent
@@ -104,10 +104,24 @@ class DroneState:
 
         with self.lock:
             self.scf = scf
-            self.status = "connected"
-            self.message = f"Connected to {uri}."
+            self.status = "identifying"
+            self.message = f"Connected to {uri}. Identifying..."
 
-        return {"ok": True, "message": f"Connected to {uri}.", "status": self.as_dict()}
+        try:
+            identify_drone(scf)
+        except Exception:
+            close_link_quietly(scf)
+            with self.lock:
+                self.scf = None
+                self.status = "error"
+                self.message = "Connected, but identify failed."
+            raise
+
+        with self.lock:
+            self.status = "connected"
+            self.message = f"Connected to {uri}. Identify complete."
+
+        return {"ok": True, "message": self.message, "status": self.as_dict()}
 
     def disconnect(self):
         with self.lock:

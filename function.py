@@ -18,6 +18,11 @@ def spin_motors(scf, thrust=12000, duration_seconds=1.0):
     time.sleep(0.1)
 
 
+def identify_drone(scf):
+    spin_motors(scf, thrust=12000, duration_seconds=0.5)
+    stop_drone(scf)
+
+
 def wait(scf, duration_seconds=1.0):
     time.sleep(duration_seconds)
 
@@ -56,6 +61,7 @@ def land(scf):
 
 
 BLOCK_FUNCTIONS = {
+    "identify_drone": identify_drone,
     "spin_motors": spin_motors,
     "wait": wait,
     "takeoff": takeoff,
