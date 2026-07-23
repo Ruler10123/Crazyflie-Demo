@@ -16,12 +16,54 @@ const SNAP_GAP = 8;
 const SNAP_THRESHOLD = 32;
 const DEFAULT_BLOCK_DEFINITIONS = [
   { command: "start", label: "start", style: "start", description: "Start the program from here." },
-  { command: "spin_motors", label: "spin fans 1 sec", style: "fan", description: "Spin the motors for one second." },
-  { command: "takeoff", label: "take off", style: "motion", description: "Take off and hover briefly." },
-  { command: "forward", label: "fly forward 20 cm", style: "motion", description: "Fly the Crazyflie forward 20 centimeters." },
-  { command: "right", label: "turn right 90 deg", style: "motion", description: "Rotate the Crazyflie 90 degrees to the right." },
-  { command: "move_linear_simple", label: "move linear simple", style: "motion", description: "Fly forward 0.5m, turn 180 degrees, fly forward 0.5m." },
-  { command: "wait", label: "wait 1 sec", style: "wait", description: "Pause the script for one second." },
+  {
+    command: "spin_motors",
+    label: "spin fans",
+    style: "fan",
+    description: "Spin the motors for one second.",
+    inputs: [{ name: "duration_seconds", label: "sec", type: "number", value: 1, min: 0.1, max: 1.5, step: 0.1 }],
+  },
+  {
+    command: "takeoff",
+    label: "take off",
+    style: "motion",
+    description: "Take off and hover briefly.",
+    inputs: [
+      { name: "duration_seconds", label: "sec", type: "number", value: 2, min: 0.2, max: 4, step: 0.1 },
+      { name: "thrust", label: "thrust", type: "number", value: 12000, min: 10001, max: 18000, step: 100 },
+    ],
+  },
+  {
+    command: "forward",
+    label: "fly forward",
+    style: "motion",
+    description: "Fly the Crazyflie forward 20 centimeters.",
+    inputs: [{ name: "distance_cm", label: "cm", type: "number", value: 20, min: 1, max: 200, step: 1 }],
+  },
+  {
+    command: "right",
+    label: "turn right",
+    style: "motion",
+    description: "Rotate the Crazyflie 90 degrees to the right.",
+    inputs: [{ name: "degrees", label: "deg", type: "number", value: 90, min: 1, max: 360, step: 1 }],
+  },
+  {
+    command: "move_linear_simple",
+    label: "move linear",
+    style: "motion",
+    description: "Fly forward 0.5m, turn 180 degrees, fly forward 0.5m.",
+    inputs: [
+      { name: "distance_m", label: "m", type: "number", value: 0.5, min: 0.1, max: 2, step: 0.1 },
+      { name: "turn_degrees", label: "deg", type: "number", value: 180, min: 1, max: 360, step: 1 },
+    ],
+  },
+  {
+    command: "wait",
+    label: "wait",
+    style: "wait",
+    description: "Pause the script for one second.",
+    inputs: [{ name: "duration_seconds", label: "sec", type: "number", value: 1, min: 0.1, max: 10, step: 0.1 }],
+  },
   { command: "land", label: "land", style: "stop", description: "Land the Crazyflie safely." },
 ];
 
@@ -114,16 +156,50 @@ function renderBlockToolbox() {
   blockList.innerHTML = "";
 
   definitions.forEach((definition) => {
-    const button = document.createElement("button");
-    button.className = `block ${definition.style}`;
-    button.draggable = false;
-    button.dataset.command = definition.command;
-    button.title = definition.description || "";
-    button.type = "button";
-    button.textContent = definition.label;
-    button.addEventListener("pointerdown", startToolboxDrag);
-    blockList.append(button);
-    blocks.push(button);
+    const block = document.createElement("div");
+    block.className = `block ${definition.style}`;
+    block.draggable = false;
+    block.dataset.command = definition.command;
+    block.title = definition.description || "";
+    block.role = "button";
+    block.tabIndex = 0;
+    renderBlockContent(block, definition);
+    block.addEventListener("pointerdown", startToolboxDrag);
+    blockList.append(block);
+    blocks.push(block);
+  });
+}
+
+function renderBlockContent(block, definition) {
+  block.textContent = "";
+
+  const label = document.createElement("span");
+  label.className = "block-label";
+  label.textContent = definition.label;
+  block.append(label);
+
+  if (!Array.isArray(definition.inputs)) return;
+
+  definition.inputs.forEach((inputDefinition) => {
+    const wrapper = document.createElement("label");
+    wrapper.className = "block-input-wrap";
+
+    const input = document.createElement("input");
+    input.className = "block-input";
+    input.type = inputDefinition.type || "number";
+    input.name = inputDefinition.name;
+    input.value = inputDefinition.value;
+    input.dataset.defaultValue = inputDefinition.value;
+    if (inputDefinition.min !== undefined) input.min = inputDefinition.min;
+    if (inputDefinition.max !== undefined) input.max = inputDefinition.max;
+    if (inputDefinition.step !== undefined) input.step = inputDefinition.step;
+
+    const unit = document.createElement("span");
+    unit.className = "block-input-unit";
+    unit.textContent = inputDefinition.label;
+
+    wrapper.append(input, unit);
+    block.append(wrapper);
   });
 }
 
@@ -183,7 +259,6 @@ function makeScriptBlock(sourceBlock) {
   block.style.left = "24px";
   block.style.top = "24px";
   block.draggable = false;
-  block.disabled = false;
   block.dataset.scriptId = String(blockCounter);
   blockCounter += 1;
 
@@ -252,6 +327,7 @@ function getSnappedPosition(block, x, y) {
 
 function startToolboxDrag(event) {
   if (event.button !== 0) return;
+  if (event.target.closest("input")) return;
   const source = event.currentTarget;
   const sourceRect = source.getBoundingClientRect();
   dragSource = source;
@@ -280,6 +356,7 @@ function startToolboxDrag(event) {
 function startScriptBlockDrag(event) {
   if (event.button !== 0) return;
   if (event.target.classList.contains("remove-block")) return;
+  if (event.target.closest("input")) return;
 
   const block = event.currentTarget;
   activeDragBlock = block;
@@ -421,14 +498,14 @@ async function runCurrentScript() {
     return;
   }
 
-  const script = sortedBlocks.slice(startIndex + 1).map((block) => block.dataset.command).filter(Boolean);
+  const script = sortedBlocks.slice(startIndex + 1).map(getScriptCommand).filter(Boolean);
   if (script.length === 0) {
     statusMessage.textContent = "Add blocks below the start block before running.";
     return;
   }
 
   setBusy(true);
-  statusMessage.textContent = `Running: ${script.join(" -> ")}`;
+  statusMessage.textContent = `Running: ${script.map(formatScriptCommand).join(" -> ")}`;
   try {
     const payload = await requestJson("/api/run_script", {
       method: "POST",
@@ -440,6 +517,28 @@ async function runCurrentScript() {
   } finally {
     setBusy(false);
   }
+}
+
+function getScriptCommand(block) {
+  const command = block.dataset.command;
+  if (!command) return null;
+
+  const args = {};
+  block.querySelectorAll(".block-input").forEach((input) => {
+    const fallback = Number(input.dataset.defaultValue || 0);
+    const value = Number(input.value);
+    args[input.name] = Number.isFinite(value) ? value : fallback;
+  });
+
+  if (Object.keys(args).length === 0) return command;
+  return { command, args };
+}
+
+function formatScriptCommand(entry) {
+  if (typeof entry === "string") return entry;
+  const values = Object.values(entry.args || {});
+  if (values.length === 0) return entry.command;
+  return `${entry.command}(${values.join(", ")})`;
 }
 
 startButton.addEventListener("click", runCurrentScript);

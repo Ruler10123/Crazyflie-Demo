@@ -3,14 +3,23 @@ import time
 from motion_blocks import move_linear_simple
 
 
+def clamp_number(value, minimum, maximum, fallback):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = fallback
+    return max(minimum, min(number, maximum))
+
+
 def stop_drone(scf):
     scf.cf.commander.send_stop_setpoint()
     scf.cf.commander.send_notify_setpoint_stop()
 
 
 def spin_motors(scf, thrust=12000, duration_seconds=1.0):
-    thrust = max(10001, min(int(thrust), 18000))
-    end_time = time.monotonic() + min(duration_seconds, 1.5)
+    thrust = int(clamp_number(thrust, 10001, 18000, 12000))
+    duration_seconds = clamp_number(duration_seconds, 0.1, 1.5, 1.0)
+    end_time = time.monotonic() + duration_seconds
     while time.monotonic() < end_time:
         scf.cf.commander.send_setpoint(0.0, 0.0, 0.0, thrust)
         time.sleep(0.05)
@@ -24,12 +33,14 @@ def identify_drone(scf):
 
 
 def wait(scf, duration_seconds=1.0):
+    duration_seconds = clamp_number(duration_seconds, 0.1, 10.0, 1.0)
     time.sleep(duration_seconds)
 
 
 def takeoff(scf, thrust=12000, duration_seconds=2.0):
-    thrust = max(10001, min(int(thrust), 18000))
-    end_time = time.monotonic() + min(duration_seconds, 4.0)
+    thrust = int(clamp_number(thrust, 10001, 18000, 12000))
+    duration_seconds = clamp_number(duration_seconds, 0.2, 4.0, 2.0)
+    end_time = time.monotonic() + duration_seconds
     while time.monotonic() < end_time:
         scf.cf.commander.send_setpoint(0.0, 0.0, 0.0, thrust)
         time.sleep(0.05)
@@ -37,7 +48,13 @@ def takeoff(scf, thrust=12000, duration_seconds=2.0):
     time.sleep(0.2)
 
 
-def forward(scf, duration_seconds=1.0, thrust=9000, pitch=0.2):
+def forward(scf, distance_cm=20, duration_seconds=None, thrust=9000, pitch=0.2):
+    distance_cm = clamp_number(distance_cm, 1.0, 200.0, 20.0)
+    if duration_seconds is None:
+        duration_seconds = distance_cm / 20.0
+    duration_seconds = clamp_number(duration_seconds, 0.1, 10.0, 1.0)
+    thrust = int(clamp_number(thrust, 8000, 14000, 9000))
+    pitch = clamp_number(pitch, 0.05, 0.5, 0.2)
     end_time = time.monotonic() + duration_seconds
     while time.monotonic() < end_time:
         scf.cf.commander.send_setpoint(0.0, pitch, 0.0, thrust)
@@ -46,7 +63,13 @@ def forward(scf, duration_seconds=1.0, thrust=9000, pitch=0.2):
     time.sleep(0.2)
 
 
-def right(scf, duration_seconds=1.0, yaw_rate=-0.5, thrust=9000):
+def right(scf, degrees=90, duration_seconds=None, yaw_rate=-0.5, thrust=9000):
+    degrees = clamp_number(degrees, 1.0, 360.0, 90.0)
+    if duration_seconds is None:
+        duration_seconds = degrees / 90.0
+    duration_seconds = clamp_number(duration_seconds, 0.1, 4.0, 1.0)
+    yaw_rate = -abs(clamp_number(yaw_rate, 0.1, 2.0, 0.5))
+    thrust = int(clamp_number(thrust, 8000, 14000, 9000))
     end_time = time.monotonic() + duration_seconds
     while time.monotonic() < end_time:
         scf.cf.commander.send_setpoint(0.0, 0.0, yaw_rate, thrust)

@@ -162,11 +162,12 @@ class DroneState:
             self.message = "Running block script..."
 
         try:
-            for command in commands:
+            for entry in commands:
+                command, args = normalize_command_entry(entry)
                 function = BLOCK_FUNCTIONS.get(command)
                 if function is None:
                     raise ValueError(f"Block is not implemented yet: {command}")
-                function(scf)
+                function(scf, **args)
 
             stop_drone(scf)
             self.set_status("connected", "Finished running blocks.")
@@ -195,6 +196,25 @@ def scan_interfaces():
     init_drivers_once()
     found = cflib.crtp.scan_interfaces()
     return [{"uri": uri, "info": str(info)} for uri, info in found]
+
+
+def normalize_command_entry(entry):
+    if isinstance(entry, str):
+        return entry, {}
+    if not isinstance(entry, dict):
+        raise ValueError("Each command must be a string or object.")
+
+    command = entry.get("command")
+    if not isinstance(command, str) or not command:
+        raise ValueError("Each command object needs a command name.")
+
+    args = entry.get("args", {})
+    if args is None:
+        args = {}
+    if not isinstance(args, dict):
+        raise ValueError(f"Command args must be an object: {command}")
+
+    return command, args
 
 
 def startup_radio_preflight():
