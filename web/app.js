@@ -5,6 +5,7 @@ const uriSelect = document.querySelector("#uriSelect");
 const statusBadge = document.querySelector("#statusBadge");
 const statusMessage = document.querySelector("#statusMessage");
 const connectionText = document.querySelector("#connectionText");
+const languageSelect = document.querySelector("#languageSelect");
 const blockList = document.querySelector("#blockList");
 const scriptStack = document.querySelector("#scriptStack");
 const scriptPlaceholder = document.querySelector("#scriptPlaceholder");
@@ -14,59 +15,136 @@ const clearButton = document.querySelector("#clearButton");
 
 const SNAP_GAP = 8;
 const SNAP_THRESHOLD = 32;
+const LANGUAGE_KEY = "crazyflieBlocksLanguage";
+const SUPPORTED_LANGUAGES = ["en", "fr"];
 const DEFAULT_BLOCK_DEFINITIONS = [
-  { command: "start", label: "start", style: "start", description: "Start the program from here." },
+  { command: "start", label: { en: "start", fr: "départ" }, style: "start", description: { en: "Start the program from here.", fr: "Démarrer le programme ici." } },
   {
     command: "spin_motors",
-    label: "spin fans",
+    label: { en: "spin fans", fr: "tourner hélices" },
     style: "fan",
-    description: "Spin the motors for one second.",
-    inputs: [{ name: "duration_seconds", label: "sec", type: "number", value: 1, min: 0.1, max: 50, step: 0.1 }],
+    description: { en: "Spin the motors for one second.", fr: "Faire tourner les moteurs pendant une seconde." },
+    inputs: [{ name: "duration_seconds", label: { en: "duration sec", fr: "durée s" }, type: "number", value: 1, min: 0.1, max: 50, step: 0.1 }],
   },
   {
     command: "takeoff",
-    label: "take off",
+    label: { en: "take off", fr: "décoller" },
     style: "motion",
-    description: "Take off and hover briefly.",
+    description: { en: "Take off and hover briefly.", fr: "Décoller et rester brièvement en vol stationnaire." },
     inputs: [
-      { name: "height_m", label: "m", type: "number", value: 0.3, min: 0.1, max: 1, step: 0.1 },
+      { name: "height_m", label: { en: "height m", fr: "hauteur m" }, type: "number", value: 0.3, min: 0.1, max: 1, step: 0.1 },
     ],
   },
   {
     command: "forward",
-    label: "fly forward",
+    label: { en: "fly forward", fr: "avancer" },
     style: "motion",
-    description: "Fly the Crazyflie forward 20 centimeters.",
-    inputs: [{ name: "distance_cm", label: "cm", type: "number", value: 20, min: 1, max: 200, step: 1 }],
+    description: { en: "Fly the Crazyflie forward 20 centimeters.", fr: "Faire avancer le Crazyflie de 20 centimètres." },
+    inputs: [{ name: "distance_cm", label: { en: "distance cm", fr: "distance cm" }, type: "number", value: 20, min: 1, max: 200, step: 1 }],
   },
   {
     command: "right",
-    label: "turn right",
+    label: { en: "turn right", fr: "tourner à droite" },
     style: "motion",
-    description: "Rotate the Crazyflie 90 degrees to the right.",
-    inputs: [{ name: "degrees", label: "deg", type: "number", value: 90, min: 1, max: 360, step: 1 }],
+    description: { en: "Rotate the Crazyflie 90 degrees to the right.", fr: "Faire tourner le Crazyflie de 90 degrés vers la droite." },
+    inputs: [{ name: "degrees", label: { en: "angle deg", fr: "angle deg" }, type: "number", value: 90, min: 1, max: 360, step: 1 }],
   },
   {
     command: "move_linear_simple",
-    label: "move linear",
+    label: { en: "move linear", fr: "trajet linéaire" },
     style: "motion",
-    description: "Fly forward 0.5m, turn 180 degrees, fly forward 0.5m.",
+    description: { en: "Fly forward 0.5m, turn 180 degrees, fly forward 0.5m.", fr: "Avancer de 0,5 m, tourner de 180 degrés, puis avancer de 0,5 m." },
     inputs: [
-      { name: "distance_m", label: "m", type: "number", value: 0.5, min: 0.1, max: 2, step: 0.1 },
-      { name: "turn_degrees", label: "deg", type: "number", value: 180, min: 1, max: 360, step: 1 },
+      { name: "distance_m", label: { en: "distance m", fr: "distance m" }, type: "number", value: 0.5, min: 0.1, max: 2, step: 0.1 },
+      { name: "turn_degrees", label: { en: "turn deg", fr: "rotation deg" }, type: "number", value: 180, min: 1, max: 360, step: 1 },
     ],
   },
   {
     command: "wait",
-    label: "wait",
+    label: { en: "wait", fr: "attendre" },
     style: "wait",
-    description: "Pause the script for one second.",
-    inputs: [{ name: "duration_seconds", label: "sec", type: "number", value: 1, min: 0.1, max: 10, step: 0.1 }],
+    description: { en: "Pause the script for one second.", fr: "Mettre le script en pause pendant une seconde." },
+    inputs: [{ name: "duration_seconds", label: { en: "duration sec", fr: "durée s" }, type: "number", value: 1, min: 0.1, max: 10, step: 0.1 }],
   },
-  { command: "take_off_simple", label: "take off simple", style: "motion", description: "Take off, hover for 3 seconds, then land." },
-  { command: "move_box_limit", label: "move in box limit", style: "motion", description: "Fly within a 0.5m box using the flow deck's position estimate (needs a flow deck)." },
-  { command: "land", label: "land", style: "stop", description: "Land the Crazyflie safely." },
+  { command: "take_off_simple", label: { en: "take off simple", fr: "décollage simple" }, style: "motion", description: { en: "Take off, hover for 3 seconds, then land.", fr: "Décoller, rester en vol stationnaire pendant 3 secondes, puis atterrir." } },
+  {
+    command: "move_box_limit",
+    label: { en: "move in box limit", fr: "vol en zone limitée" },
+    style: "motion",
+    description: {
+      en: "Fly within a 0.5m box using the flow deck's position estimate (needs a flow deck).",
+      fr: "Voler dans une zone de 0,5 m avec l'estimation de position du flow deck (flow deck requis).",
+    },
+  },
+  { command: "land", label: { en: "land", fr: "atterrir" }, style: "stop", description: { en: "Land the Crazyflie safely.", fr: "Faire atterrir le Crazyflie en sécurité." } },
 ];
+
+const TRANSLATIONS = {
+  en: {
+    languageLabel: "Language",
+    connectDrone: "Connect Drone",
+    scan: "Scan",
+    readyToScan: "Ready to scan for Crazyflie.",
+    droneUri: "Drone URI",
+    scanFirst: "Scan first...",
+    connect: "Connect",
+    disconnect: "Disconnect",
+    blocks: "Blocks",
+    start: "Start",
+    stop: "Stop",
+    clear: "Clear",
+    dragBlocks: "Drag blocks from the left toolbox.",
+    disconnected: "Disconnected",
+    connected: "Connected",
+    connecting: "Connecting",
+    identifying: "Identifying",
+    running: "Running",
+    error: "Connection error",
+    noCrazyflieFound: "No Crazyflie found",
+    scanningInterfaces: "Scanning Crazyradio interfaces...",
+    selectCrazyflieFirst: "Scan and select a Crazyflie URI first.",
+    addStartAndCommands: "Add a start block and some commands before running.",
+    placeStartBlock: "Place a start block at the top of the script before running.",
+    addBlocksBelowStart: "Add blocks below the start block before running.",
+    connectBeforeRun: "Connect the Crazyflie before running blocks.",
+    connectBeforeStop: "Connect the Crazyflie before stopping.",
+    stopping: "Stopping...",
+    runningScript: "Running: {commands}",
+  },
+  fr: {
+    languageLabel: "Langue",
+    connectDrone: "Connecter le drone",
+    scan: "Scanner",
+    readyToScan: "Prêt à scanner le Crazyflie.",
+    droneUri: "URI du drone",
+    scanFirst: "Scanner d'abord...",
+    connect: "Connecter",
+    disconnect: "Déconnecter",
+    blocks: "Blocs",
+    start: "Démarrer",
+    stop: "Arrêter",
+    clear: "Effacer",
+    dragBlocks: "Glissez les blocs depuis la boîte à outils de gauche.",
+    disconnected: "Déconnecté",
+    connected: "Connecté",
+    connecting: "Connexion",
+    identifying: "Identification",
+    running: "Exécution",
+    error: "Erreur de connexion",
+    noCrazyflieFound: "Aucun Crazyflie trouvé",
+    scanningInterfaces: "Scan des interfaces Crazyradio...",
+    selectCrazyflieFirst: "Scannez et sélectionnez d'abord une URI Crazyflie.",
+    addStartAndCommands: "Ajoutez un bloc de départ et des commandes avant l'exécution.",
+    placeStartBlock: "Placez un bloc de départ en haut du script avant l'exécution.",
+    addBlocksBelowStart: "Ajoutez des blocs sous le bloc de départ avant l'exécution.",
+    connectBeforeRun: "Connectez le Crazyflie avant d'exécuter les blocs.",
+    connectBeforeStop: "Connectez le Crazyflie avant d'arrêter.",
+    stopping: "Arrêt...",
+    runningScript: "Exécution : {commands}",
+  },
+};
+
+let currentLanguage = getInitialLanguage();
 
 const blocks = [];
 let connected = false;
@@ -75,6 +153,83 @@ let activeDragPointerId = null;
 let dragOffset = { x: 0, y: 0 };
 let dragSource = null;
 let blockCounter = 0;
+let lastStatus = null;
+
+function getInitialLanguage() {
+  const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
+  if (SUPPORTED_LANGUAGES.includes(savedLanguage)) return savedLanguage;
+  return "en";
+}
+
+function t(key, replacements = {}) {
+  const template = TRANSLATIONS[currentLanguage]?.[key] || TRANSLATIONS.en[key] || key;
+  return Object.entries(replacements).reduce((text, [name, value]) => {
+    return text.replace(`{${name}}`, value);
+  }, template);
+}
+
+function localizedText(value) {
+  if (value && typeof value === "object") {
+    return value[currentLanguage] || value.en || "";
+  }
+  return value || "";
+}
+
+function getDefinitions() {
+  return Array.isArray(window.BLOCK_DEFINITIONS) ? window.BLOCK_DEFINITIONS : DEFAULT_BLOCK_DEFINITIONS;
+}
+
+function getDefinition(command) {
+  return getDefinitions().find((definition) => definition.command === command);
+}
+
+function applyLanguage() {
+  document.documentElement.lang = currentLanguage;
+  languageSelect.value = currentLanguage;
+
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    element.title = t(element.dataset.i18nTitle);
+  });
+
+  localizeUriSelect();
+  updateBlockLanguage();
+  if (lastStatus) {
+    renderStatus(lastStatus);
+  } else {
+    connectionText.textContent = t("disconnected");
+    statusBadge.textContent = t("disconnected");
+    statusMessage.textContent = t("readyToScan");
+  }
+}
+
+function localizeUriSelect() {
+  Array.from(uriSelect.options).forEach((option) => {
+    if (option.value === "") {
+      option.textContent = option.dataset.emptyLabel ? t(option.dataset.emptyLabel) : t("scanFirst");
+    }
+  });
+}
+
+function updateBlockLanguage() {
+  document.querySelectorAll(".block").forEach((block) => {
+    const definition = getDefinition(block.dataset.command);
+    if (!definition) return;
+    const label = block.querySelector(".block-label");
+    if (label) label.textContent = localizedText(definition.label);
+    block.title = localizedText(definition.description);
+    block.querySelectorAll(".block-input-wrap").forEach((wrapper) => {
+      const input = wrapper.querySelector(".block-input");
+      const unit = wrapper.querySelector(".block-input-unit");
+      const inputDefinition = definition.inputs?.find((candidate) => candidate.name === input?.name);
+      if (unit && inputDefinition) {
+        unit.textContent = localizedText(inputDefinition.label);
+      }
+    });
+  });
+}
 
 async function requestJson(path, options = {}) {
   const response = await fetch(path, {
@@ -97,10 +252,11 @@ function setBusy(isBusy) {
 }
 
 function renderStatus(status) {
+  lastStatus = status;
   connected = status.connected;
-  statusBadge.textContent = status.status;
+  statusBadge.textContent = getStatusLabel(status.status);
   statusBadge.className = `status-badge ${status.status}`;
-  statusMessage.textContent = status.message;
+  statusMessage.textContent = localizeStatusMessage(status);
   connectionText.textContent = getConnectionLabel(status);
   connectionText.title = status.connected && status.uri ? status.uri : "";
   startButton.disabled = !status.connected;
@@ -113,10 +269,21 @@ function renderStatus(status) {
 }
 
 function getConnectionLabel(status) {
-  if (status.connected) return "Connected";
-  if (status.status === "connecting") return "Connecting";
-  if (status.status === "error") return "Connection error";
-  return "Disconnected";
+  if (status.connected) return t("connected");
+  if (status.status === "connecting") return t("connecting");
+  if (status.status === "error") return t("error");
+  return t("disconnected");
+}
+
+function getStatusLabel(status) {
+  return t(status) || status;
+}
+
+function localizeStatusMessage(status) {
+  if (!status || !status.message) return "";
+  if (status.message === "Ready to scan for Crazyflie.") return t("readyToScan");
+  if (status.message === "No Crazyflie found") return t("noCrazyflieFound");
+  return status.message;
 }
 
 function ensureUriOption(uri) {
@@ -135,7 +302,8 @@ function renderDrones(drones) {
   if (drones.length === 0) {
     const option = document.createElement("option");
     option.value = "";
-    option.textContent = "No Crazyflie found";
+    option.dataset.emptyLabel = "noCrazyflieFound";
+    option.textContent = t("noCrazyflieFound");
     uriSelect.append(option);
     return;
   }
@@ -152,7 +320,7 @@ function renderDrones(drones) {
 }
 
 function renderBlockToolbox() {
-  const definitions = Array.isArray(window.BLOCK_DEFINITIONS) ? window.BLOCK_DEFINITIONS : DEFAULT_BLOCK_DEFINITIONS;
+  const definitions = getDefinitions();
   blocks.length = 0;
   blockList.innerHTML = "";
 
@@ -161,7 +329,7 @@ function renderBlockToolbox() {
     block.className = `block ${definition.style}`;
     block.draggable = false;
     block.dataset.command = definition.command;
-    block.title = definition.description || "";
+    block.title = localizedText(definition.description);
     block.role = "button";
     block.tabIndex = 0;
     renderBlockContent(block, definition);
@@ -176,7 +344,7 @@ function renderBlockContent(block, definition) {
 
   const label = document.createElement("span");
   label.className = "block-label";
-  label.textContent = definition.label;
+  label.textContent = localizedText(definition.label);
   block.append(label);
 
   if (!Array.isArray(definition.inputs)) return;
@@ -187,7 +355,8 @@ function renderBlockContent(block, definition) {
 
     const input = document.createElement("input");
     input.className = "block-input";
-    input.type = inputDefinition.type || "number";
+    input.type = "text";
+    input.inputMode = "decimal";
     input.name = inputDefinition.name;
     input.value = inputDefinition.value;
     input.dataset.defaultValue = inputDefinition.value;
@@ -197,7 +366,7 @@ function renderBlockContent(block, definition) {
 
     const unit = document.createElement("span");
     unit.className = "block-input-unit";
-    unit.textContent = inputDefinition.label;
+    unit.textContent = localizedText(inputDefinition.label);
 
     wrapper.append(input, unit);
     block.append(wrapper);
@@ -206,7 +375,7 @@ function renderBlockContent(block, definition) {
 
 scanButton.addEventListener("click", async () => {
   setBusy(true);
-  statusMessage.textContent = "Scanning Crazyradio interfaces...";
+  statusMessage.textContent = t("scanningInterfaces");
   try {
     const payload = await requestJson("/api/scan");
     renderDrones(payload.drones);
@@ -221,7 +390,7 @@ scanButton.addEventListener("click", async () => {
 connectButton.addEventListener("click", async () => {
   const uri = uriSelect.value;
   if (!uri) {
-    renderStatus({ status: "error", message: "Scan and select a Crazyflie URI first.", connected: false, uri: null });
+    renderStatus({ status: "error", message: t("selectCrazyflieFirst"), connected: false, uri: null });
     return;
   }
 
@@ -479,13 +648,13 @@ clearButton.addEventListener("click", () => {
 
 async function runCurrentScript() {
   if (!connected) {
-    renderStatus({ status: "error", message: "Connect the Crazyflie before running blocks.", connected: false, uri: null });
+    renderStatus({ status: "error", message: t("connectBeforeRun"), connected: false, uri: null });
     return;
   }
 
   const blocksInStack = Array.from(scriptStack.querySelectorAll(".script-block"));
   if (blocksInStack.length === 0) {
-    statusMessage.textContent = "Add a start block and some commands before running.";
+    statusMessage.textContent = t("addStartAndCommands");
     return;
   }
 
@@ -495,18 +664,18 @@ async function runCurrentScript() {
 
   const startIndex = sortedBlocks.findIndex((block) => block.dataset.command === "start");
   if (startIndex === -1) {
-    statusMessage.textContent = "Place a start block at the top of the script before running.";
+    statusMessage.textContent = t("placeStartBlock");
     return;
   }
 
   const script = sortedBlocks.slice(startIndex + 1).map(getScriptCommand).filter(Boolean);
   if (script.length === 0) {
-    statusMessage.textContent = "Add blocks below the start block before running.";
+    statusMessage.textContent = t("addBlocksBelowStart");
     return;
   }
 
   setBusy(true);
-  statusMessage.textContent = `Running: ${script.map(formatScriptCommand).join(" -> ")}`;
+  statusMessage.textContent = t("runningScript", { commands: script.map(formatScriptCommand).join(" -> ") });
   try {
     const payload = await requestJson("/api/run_script", {
       method: "POST",
@@ -527,7 +696,7 @@ function getScriptCommand(block) {
   const args = {};
   block.querySelectorAll(".block-input").forEach((input) => {
     const fallback = Number(input.dataset.defaultValue || 0);
-    const value = Number(input.value);
+    const value = parseBlockNumber(input.value);
     args[input.name] = Number.isFinite(value) ? value : fallback;
   });
 
@@ -535,23 +704,36 @@ function getScriptCommand(block) {
   return { command, args };
 }
 
+function parseBlockNumber(value) {
+  if (typeof value !== "string") return Number(value);
+  const normalized = value
+    .trim()
+    .replace(/[０-９]/g, (char) => String(char.charCodeAt(0) - 0xff10))
+    .replace(/．/g, ".")
+    .replace(/－/g, "-");
+  return Number(normalized);
+}
+
 function formatScriptCommand(entry) {
-  if (typeof entry === "string") return entry;
+  const command = typeof entry === "string" ? entry : entry.command;
+  const definition = getDefinition(command);
+  const label = localizedText(definition?.label) || command;
+  if (typeof entry === "string") return label;
   const values = Object.values(entry.args || {});
-  if (values.length === 0) return entry.command;
-  return `${entry.command}(${values.join(", ")})`;
+  if (values.length === 0) return label;
+  return `${label}(${values.join(", ")})`;
 }
 
 startButton.addEventListener("click", runCurrentScript);
 
 stopButton.addEventListener("click", async () => {
   if (!connected) {
-    renderStatus({ status: "error", message: "Connect the Crazyflie before stopping.", connected: false, uri: null });
+    renderStatus({ status: "error", message: t("connectBeforeStop"), connected: false, uri: null });
     return;
   }
 
   setBusy(true);
-  statusMessage.textContent = "Stopping...";
+  statusMessage.textContent = t("stopping");
   try {
     const payload = await requestJson("/api/stop", { method: "POST" });
     renderStatus(payload.status);
@@ -562,7 +744,14 @@ stopButton.addEventListener("click", async () => {
   }
 });
 
+languageSelect.addEventListener("change", () => {
+  currentLanguage = SUPPORTED_LANGUAGES.includes(languageSelect.value) ? languageSelect.value : "en";
+  localStorage.setItem(LANGUAGE_KEY, currentLanguage);
+  applyLanguage();
+});
+
 renderBlockToolbox();
+applyLanguage();
 
 requestJson("/api/status")
   .then(renderStatus)

@@ -175,6 +175,7 @@ class DroneState:
                 function = BLOCK_FUNCTIONS.get(command)
                 if function is None:
                     raise ValueError(f"Block is not implemented yet: {command}")
+                self.set_status("running", f"Running {format_command_for_status(command, args)}...")
                 if command == "takeoff":
                     flight.takeoff(args)
                 elif command in MOTION_COMMANDS:
@@ -232,6 +233,13 @@ def normalize_command_entry(entry):
         raise ValueError(f"Command args must be an object: {command}")
 
     return command, args
+
+
+def format_command_for_status(command, args):
+    if not args:
+        return command
+    values = ", ".join(f"{key}: {value}" for key, value in args.items())
+    return f"{command} ({values})"
 
 
 class ScriptFlightSession:

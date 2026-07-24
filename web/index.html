@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crazyflie Blocks</title>
-    <link rel="stylesheet" href="/styles.css?v=20260723m">
+    <link rel="stylesheet" href="/styles.css?v=20260724b">
   </head>
   <body>
     <main class="app-shell">
@@ -17,32 +17,40 @@
           </div>
         </div>
 
+        <label class="field language-field">
+          <span data-i18n="languageLabel">Language</span>
+          <select id="languageSelect">
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+          </select>
+        </label>
+
         <section class="panel">
           <div class="panel-title">
             <span>1</span>
-            <h2>Connect Drone</h2>
+            <h2 data-i18n="connectDrone">Connect Drone</h2>
           </div>
-          <button id="scanButton" class="primary-button">Scan</button>
+          <button id="scanButton" class="primary-button" data-i18n="scan">Scan</button>
           <div class="status-summary">
             <span id="statusBadge" class="status-badge disconnected">Disconnected</span>
-            <p id="statusMessage" class="status-message">Ready to scan for Crazyflie.</p>
+            <p id="statusMessage" class="status-message" data-i18n="readyToScan">Ready to scan for Crazyflie.</p>
           </div>
           <label class="field">
-            <span>Drone URI</span>
+            <span data-i18n="droneUri">Drone URI</span>
             <select id="uriSelect">
-              <option value="">Scan first...</option>
+              <option value="" data-i18n="scanFirst">Scan first...</option>
             </select>
           </label>
           <div class="button-row">
-            <button id="connectButton" class="primary-button">Connect</button>
-            <button id="disconnectButton" class="ghost-button">Disconnect</button>
+            <button id="connectButton" class="primary-button" data-i18n="connect">Connect</button>
+            <button id="disconnectButton" class="ghost-button" data-i18n="disconnect">Disconnect</button>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-title">
             <span>2</span>
-            <h2>Blocks</h2>
+            <h2 data-i18n="blocks">Blocks</h2>
           </div>
           <div id="blockList" class="block-list"></div>
         </section>
@@ -50,28 +58,28 @@
 
       <section id="workspaceArea" class="workspace">
         <div class="stage-controls" aria-label="Script controls">
-          <button id="startButton" class="icon-button start-control" type="button" title="Start">
+          <button id="startButton" class="icon-button start-control" type="button" title="Start" data-i18n-title="start">
             <span class="flag-icon" aria-hidden="true"></span>
-            <span class="sr-only">Start</span>
+            <span class="sr-only" data-i18n="start">Start</span>
           </button>
-          <button id="stopButton" class="icon-button stop-control" type="button" title="Stop">
+          <button id="stopButton" class="icon-button stop-control" type="button" title="Stop" data-i18n-title="stop">
             <span class="stop-icon" aria-hidden="true"></span>
-            <span class="sr-only">Stop</span>
+            <span class="sr-only" data-i18n="stop">Stop</span>
           </button>
-          <button id="clearButton" class="icon-button clear-control" type="button" title="Clear">
+          <button id="clearButton" class="icon-button clear-control" type="button" title="Clear" data-i18n-title="clear">
             <span class="trash-icon" aria-hidden="true"></span>
-            <span class="sr-only">Clear</span>
+            <span class="sr-only" data-i18n="clear">Clear</span>
           </button>
         </div>
         <div class="script-area">
           <div id="scriptStack" class="script-stack" aria-label="Script workspace">
-            <div id="scriptPlaceholder" class="script-placeholder">Drag blocks from the left toolbox.</div>
+            <div id="scriptPlaceholder" class="script-placeholder" data-i18n="dragBlocks">Drag blocks from the left toolbox.</div>
           </div>
         </div>
       </section>
     </main>
 
-    <script src="/blocks.js?v=20260723m"></script>
-    <script src="/app.js?v=20260723m"></script>
+    <script src="/blocks.js?v=20260724b"></script>
+    <script src="/app.js?v=20260724b"></script>
   </body>
 </html>

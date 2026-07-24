@@ -5,10 +5,16 @@ from motion_blocks import move_box_limit, move_linear_simple, take_off_simple
 
 def clamp_number(value, minimum, maximum, fallback):
     try:
-        number = float(value)
+        number = float(normalize_number(value))
     except (TypeError, ValueError):
         number = fallback
     return max(minimum, min(number, maximum))
+
+
+def normalize_number(value):
+    if not isinstance(value, str):
+        return value
+    return value.translate(str.maketrans("０１２３４５６７８９．－", "0123456789.-")).strip()
 
 
 def stop_drone(scf):
