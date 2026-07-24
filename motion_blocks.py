@@ -4,6 +4,8 @@ import time
 from cflib.crazyflie.log import LogConfig
 from cflib.positioning.motion_commander import MotionCommander
 
+import cancellation
+
 DEFAULT_HEIGHT = 0.5
 BOX_LIMIT = 0.5
 
@@ -19,29 +21,29 @@ def clamp_number(value, minimum, maximum, fallback):
 def move_linear_simple(scf, distance_m=0.5, turn_degrees=180, mc=None):
     distance_m = clamp_number(distance_m, 0.1, 2.0, 0.5)
     turn_degrees = clamp_number(turn_degrees, 1.0, 360.0, 180.0)
-    if mc is not None:
-        time.sleep(1)
+    def _steps(mc):
+        if cancellation.sleep(1):
+            return
         mc.forward(distance_m)
-        time.sleep(1)
+        if cancellation.sleep(1) or cancellation.stopping():
+            return
         mc.turn_left(turn_degrees)
-        time.sleep(1)
+        if cancellation.sleep(1) or cancellation.stopping():
+            return
         mc.forward(distance_m)
-        time.sleep(1)
+        cancellation.sleep(1)
+
+    if mc is not None:
+        _steps(mc)
         return
 
     with MotionCommander(scf, default_height=DEFAULT_HEIGHT) as mc:
-        time.sleep(1)
-        mc.forward(distance_m)
-        time.sleep(1)
-        mc.turn_left(turn_degrees)
-        time.sleep(1)
-        mc.forward(distance_m)
-        time.sleep(1)
+        _steps(mc)
 
 
 def take_off_simple(scf):
     with MotionCommander(scf, default_height=DEFAULT_HEIGHT):
-        time.sleep(3)
+        cancellation.sleep(3)
 
 
 def move_box_limit(scf, duration_seconds=10.0):
@@ -76,7 +78,7 @@ def move_box_limit(scf, duration_seconds=10.0):
             max_vel = 0.2
 
             end_time = time.monotonic() + duration_seconds
-            while time.monotonic() < end_time:
+            while time.monotonic() < end_time and not cancellation.stopping():
                 if position_estimate[0] > BOX_LIMIT:
                     body_x_cmd = -max_vel
                 elif position_estimate[0] < -BOX_LIMIT:

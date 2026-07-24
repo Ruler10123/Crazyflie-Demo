@@ -14,6 +14,7 @@ from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.positioning.motion_commander import MotionCommander
 
+import cancellation
 from function import BLOCK_FUNCTIONS, identify_drone, stop_drone
 
 
@@ -51,6 +52,7 @@ class DroneState:
         self.uri = None
         self.status = "disconnected"
         self.message = "Ready to scan for Crazyflie."
+        self.active_flight = None
 
     def as_dict(self):
         with self.lock:
@@ -115,6 +117,7 @@ class DroneState:
             self.message = f"Connected to {uri}. Identifying..."
 
         try:
+            cancellation.reset()
             identify_drone(scf)
         except Exception:
             close_link_quietly(scf)
@@ -147,12 +150,21 @@ class DroneState:
     def stop(self):
         with self.lock:
             scf = self.scf
+            flight = self.active_flight
             if scf is None:
                 self.status = "disconnected"
                 self.message = "No Crazyflie is connected."
                 return {"ok": True, "message": self.message, "status": self.as_dict()}
 
-        stop_drone(scf)
+        # Tell the running script to bail out of its loops, then cut the motors.
+        # emergency_stop also halts an active MotionCommander's background
+        # setpoint thread, which would otherwise re-send hover setpoints and
+        # override a one-shot stop.
+        cancellation.request_stop()
+        if flight is not None:
+            flight.emergency_stop()
+        else:
+            stop_drone(scf)
         self.set_status("connected", "Stopped.")
         return {"ok": True, "message": "Stopped.", "status": self.as_dict()}
 
@@ -168,9 +180,14 @@ class DroneState:
             self.status = "running"
             self.message = "Running block script..."
 
+        cancellation.reset()
         flight = ScriptFlightSession(scf)
+        with self.lock:
+            self.active_flight = flight
         try:
             for entry in commands:
+                if cancellation.stopping():
+                    break
                 command, args = normalize_command_entry(entry)
                 function = BLOCK_FUNCTIONS.get(command)
                 if function is None:
@@ -185,6 +202,11 @@ class DroneState:
                 else:
                     function(scf, **args)
 
+            if cancellation.stopping():
+                flight.emergency_stop()
+                self.set_status("connected", "Stopped.")
+                return {"ok": True, "message": "Stopped.", "status": self.as_dict()}
+
             flight.land()
             stop_drone(scf)
             self.set_status("connected", "Finished running blocks.")
@@ -193,6 +215,9 @@ class DroneState:
             flight.land()
             stop_drone(scf)
             raise
+        finally:
+            with self.lock:
+                self.active_flight = None
 
 
 STATE = DroneState()
@@ -246,24 +271,48 @@ class ScriptFlightSession:
     def __init__(self, scf):
         self.scf = scf
         self.mc = None
+        # Guards self.mc: the stop handler runs on a different thread than the
+        # script and may call emergency_stop() while the script owns the mc.
+        self._lock = threading.Lock()
 
     def ensure_flying(self, height_m=0.3):
         if self.mc is None:
-            self.mc = MotionCommander(self.scf, default_height=clamp_script_number(height_m, 0.1, 1.0, 0.3))
-            self.mc.take_off()
+            mc = MotionCommander(self.scf, default_height=clamp_script_number(height_m, 0.1, 1.0, 0.3))
+            mc.take_off()
+            with self._lock:
+                self.mc = mc
         return self.mc
 
     def takeoff(self, args):
         height_m = clamp_script_number(args.get("height_m"), 0.1, 1.0, 0.3)
         if self.mc is None:
-            self.mc = MotionCommander(self.scf, default_height=height_m)
-            self.mc.take_off(height_m)
+            mc = MotionCommander(self.scf, default_height=height_m)
+            mc.take_off(height_m)
+            with self._lock:
+                self.mc = mc
         return self.mc
 
     def land(self):
-        if self.mc is not None:
-            self.mc.land()
+        with self._lock:
+            mc = self.mc
             self.mc = None
+        if mc is not None:
+            mc.land()
+
+    def emergency_stop(self):
+        """Cut the motors now. Stops the MotionCommander's background setpoint
+        thread first so it can't re-send hover setpoints over the stop."""
+        with self._lock:
+            mc = self.mc
+            self.mc = None
+        if mc is not None:
+            thread = getattr(mc, "_thread", None)
+            if thread is not None:
+                try:
+                    thread.stop()
+                except Exception:
+                    pass
+        stop_drone(self.scf)
 
 
 def clamp_script_number(value, minimum, maximum, fallback):

@@ -243,12 +243,13 @@ async function requestJson(path, options = {}) {
   return payload;
 }
 
-function setBusy(isBusy) {
+function setBusy(isBusy, allowStop = false) {
   scanButton.disabled = isBusy;
   connectButton.disabled = isBusy;
   disconnectButton.disabled = isBusy;
   startButton.disabled = isBusy || !connected;
-  stopButton.disabled = isBusy || !connected;
+  // Keep Stop clickable while a script runs so it can abort the run.
+  stopButton.disabled = (isBusy && !allowStop) || !connected;
 }
 
 function renderStatus(status) {
@@ -674,7 +675,7 @@ async function runCurrentScript() {
     return;
   }
 
-  setBusy(true);
+  setBusy(true, true);
   statusMessage.textContent = t("runningScript", { commands: script.map(formatScriptCommand).join(" -> ") });
   try {
     const payload = await requestJson("/api/run_script", {
