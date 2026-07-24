@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent
 WEB_ROOT = ROOT / "web"
 CACHE_DIR = ROOT / ".cache" / "cflib"
 CONNECT_TIMEOUT_SECONDS = 15
+PROBE_TIMEOUT_SECONDS = 8
 MOTION_COMMANDS = {"takeoff", "forward", "right", "move_linear_simple"}
 
 
@@ -100,9 +101,10 @@ class DroneState:
         if open_thread.is_alive():
             close_link_quietly(scf)
             message = (
-                f"Connecting to {uri} timed out after {CONNECT_TIMEOUT_SECONDS}s. "
-                "Power-cycle the Crazyflie, unplug/replug the Crazyradio dongle, "
-                "and try again."
+                f"Could not connect to {uri} within {CONNECT_TIMEOUT_SECONDS}s. "
+                "It is most likely already in use by another user's radio "
+                "(check Scan for its availability). If not, power-cycle the "
+                "Crazyflie and re-seat the Crazyradio dongle, then try again."
             )
             self.set_status("error", message, uri)
             raise TimeoutError(message)
@@ -241,6 +243,53 @@ def scan_interfaces():
     return [{"uri": uri, "info": str(info)} for uri, info in found]
 
 
+def probe_uri(uri):
+    """Test whether a drone is free by opening (then immediately closing) a link.
+
+    A drone already linked to another radio still ACKs scan pings, so the only
+    reliable availability test is a full CRTP handshake: it completes on a free
+    drone and fails/times out on a busy one. Does not call identify_drone, so no
+    motors are spun -- the open+close is non-disruptive to a free drone."""
+    cf = Crazyflie(rw_cache=str(CACHE_DIR))
+    scf = SyncCrazyflie(uri, cf=cf)
+
+    error_box = []
+
+    def _open():
+        try:
+            scf.open_link()
+        except Exception as exc:
+            error_box.append(exc)
+
+    open_thread = threading.Thread(target=_open, daemon=True)
+    open_thread.start()
+    open_thread.join(PROBE_TIMEOUT_SECONDS)
+
+    if open_thread.is_alive() or error_box:
+        close_link_quietly(scf)
+        return "in_use"
+
+    close_link_quietly(scf)
+    return "available"
+
+
+def scan_with_availability():
+    """Discover reachable drones, then label each available / in_use."""
+    drones = scan_interfaces()
+
+    with STATE.lock:
+        connected_uri = STATE.uri if STATE.scf is not None else None
+
+    for drone in drones:
+        if connected_uri is not None:
+            # Our own radio is busy holding a link, so we cannot probe.
+            drone["availability"] = "connected" if drone["uri"] == connected_uri else "unknown"
+        else:
+            drone["availability"] = probe_uri(drone["uri"])
+
+    return drones
+
+
 def normalize_command_entry(entry):
     if isinstance(entry, str):
         return entry, {}
@@ -367,8 +416,13 @@ class Handler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/scan":
             try:
-                drones = scan_interfaces()
-                STATE.set_status("disconnected", f"Found {len(drones)} Crazyflie interface(s).")
+                drones = scan_with_availability()
+                available = sum(1 for drone in drones if drone.get("availability") == "available")
+                if STATE.as_dict()["connected"] is False:
+                    STATE.set_status(
+                        "disconnected",
+                        f"Found {len(drones)} drone(s), {available} available.",
+                    )
                 self.send_json({"ok": True, "drones": drones, "status": STATE.as_dict()})
             except Exception as exc:
                 self.send_json(

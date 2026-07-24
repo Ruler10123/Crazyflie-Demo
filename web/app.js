@@ -102,6 +102,11 @@ const TRANSLATIONS = {
     error: "Connection error",
     noCrazyflieFound: "No Crazyflie found",
     scanningInterfaces: "Scanning Crazyradio interfaces...",
+    scanningAvailability: "Scanning and checking which drones are free...",
+    available: "Available",
+    inUse: "In use",
+    connectedByYou: "Connected (you)",
+    availabilityUnknown: "Unknown",
     selectCrazyflieFirst: "Scan and select a Crazyflie URI first.",
     addStartAndCommands: "Add a start block and some commands before running.",
     placeStartBlock: "Place a start block at the top of the script before running.",
@@ -133,6 +138,11 @@ const TRANSLATIONS = {
     error: "Erreur de connexion",
     noCrazyflieFound: "Aucun Crazyflie trouvé",
     scanningInterfaces: "Scan des interfaces Crazyradio...",
+    scanningAvailability: "Scan et vérification des drones disponibles...",
+    available: "Disponible",
+    inUse: "Utilisé",
+    connectedByYou: "Connecté (vous)",
+    availabilityUnknown: "Inconnu",
     selectCrazyflieFirst: "Scannez et sélectionnez d'abord une URI Crazyflie.",
     addStartAndCommands: "Ajoutez un bloc de départ et des commandes avant l'exécution.",
     placeStartBlock: "Placez un bloc de départ en haut du script avant l'exécution.",
@@ -309,15 +319,38 @@ function renderDrones(drones) {
     return;
   }
 
+  let firstAvailableSelected = false;
   drones.forEach((drone) => {
     const option = document.createElement("option");
     option.value = drone.uri;
-    option.textContent = drone.info ? `${drone.uri} (${drone.info})` : drone.uri;
-    if (drone.found) {
+    const label = availabilityLabel(drone.availability);
+    const base = drone.info ? `${drone.uri} (${drone.info})` : drone.uri;
+    option.textContent = label ? `${base} — ${label}` : base;
+    if (drone.availability) {
+      option.dataset.availability = drone.availability;
+    }
+    // Auto-select the first available drone so the obvious choice is preselected.
+    if (drone.availability === "available" && !firstAvailableSelected) {
       option.selected = true;
+      firstAvailableSelected = true;
     }
     uriSelect.append(option);
   });
+}
+
+function availabilityLabel(availability) {
+  switch (availability) {
+    case "available":
+      return t("available");
+    case "in_use":
+      return t("inUse");
+    case "connected":
+      return t("connectedByYou");
+    case "unknown":
+      return t("availabilityUnknown");
+    default:
+      return "";
+  }
 }
 
 function renderBlockToolbox() {
@@ -376,7 +409,7 @@ function renderBlockContent(block, definition) {
 
 scanButton.addEventListener("click", async () => {
   setBusy(true);
-  statusMessage.textContent = t("scanningInterfaces");
+  statusMessage.textContent = t("scanningAvailability");
   try {
     const payload = await requestJson("/api/scan");
     renderDrones(payload.drones);

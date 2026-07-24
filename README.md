@@ -58,3 +58,4 @@ Blocks with numbers include editable fields. Takeoff height, forward distance, a
 - `pip install cflib` may fail if `pip` is not on PATH. Use `python3 -m pip install --user cflib`.
 - If `python3 -m pip install --user --upgrade pip` fails because of system Python restrictions, try only `python3 -m pip install --user cflib`.
 - On Windows, use `py -m pip install --user cflib` and start with `py server.py`.
+- CFCLIENT Command for firmware updates: `C:\Users\Sean\AppData\Roaming\Python\Python312\Scripts\cfclient.exe`
