@@ -216,10 +216,14 @@ function applyLanguage() {
 }
 
 function localizeUriSelect() {
+  const connectedUri = lastStatus?.connected ? lastStatus.uri : null;
   Array.from(uriSelect.options).forEach((option) => {
     if (option.value === "") {
       option.textContent = option.dataset.emptyLabel ? t(option.dataset.emptyLabel) : t("scanFirst");
+      return;
     }
+    const availability = option.value === connectedUri ? "connected" : option.dataset.scanAvailability;
+    applyOptionLabel(option, availability);
   });
 }
 
@@ -274,9 +278,7 @@ function renderStatus(status) {
   stopButton.disabled = !status.connected;
   scriptStack.classList.toggle("connected", status.connected);
 
-  if (status.connected && status.uri) {
-    ensureUriOption(status.uri);
-  }
+  refreshUriOptions(status.connected ? status.uri : null);
 }
 
 function getConnectionLabel(status) {
@@ -297,15 +299,30 @@ function localizeStatusMessage(status) {
   return status.message;
 }
 
-function ensureUriOption(uri) {
-  const hasOption = Array.from(uriSelect.options).some((option) => option.value === uri);
-  if (!hasOption) {
+// Rewrites every option's label from its stable `base` text plus the
+// availability that applies right now, since the label set at scan time
+// goes stale the moment a connection changes (e.g. connect/disconnect).
+function refreshUriOptions(connectedUri) {
+  if (connectedUri && !Array.from(uriSelect.options).some((option) => option.value === connectedUri)) {
     const option = document.createElement("option");
-    option.value = uri;
-    option.textContent = uri;
+    option.value = connectedUri;
+    option.dataset.base = connectedUri;
     uriSelect.append(option);
   }
-  uriSelect.value = uri;
+
+  Array.from(uriSelect.options).forEach((option) => {
+    if (option.value === "") return;
+    const availability = option.value === connectedUri ? "connected" : option.dataset.scanAvailability;
+    applyOptionLabel(option, availability);
+  });
+
+  if (connectedUri) uriSelect.value = connectedUri;
+}
+
+function applyOptionLabel(option, availability) {
+  const base = option.dataset.base || option.value;
+  const label = availabilityLabel(availability);
+  option.textContent = label ? `${base} — ${label}` : base;
 }
 
 function renderDrones(drones) {
@@ -323,12 +340,11 @@ function renderDrones(drones) {
   drones.forEach((drone) => {
     const option = document.createElement("option");
     option.value = drone.uri;
-    const label = availabilityLabel(drone.availability);
-    const base = drone.info ? `${drone.uri} (${drone.info})` : drone.uri;
-    option.textContent = label ? `${base} — ${label}` : base;
+    option.dataset.base = drone.info ? `${drone.uri} (${drone.info})` : drone.uri;
     if (drone.availability) {
-      option.dataset.availability = drone.availability;
+      option.dataset.scanAvailability = drone.availability;
     }
+    applyOptionLabel(option, drone.availability);
     // Auto-select the first available drone so the obvious choice is preselected.
     if (drone.availability === "available" && !firstAvailableSelected) {
       option.selected = true;
@@ -407,7 +423,7 @@ function renderBlockContent(block, definition) {
   });
 }
 
-scanButton.addEventListener("click", async () => {
+async function runScan() {
   setBusy(true);
   statusMessage.textContent = t("scanningAvailability");
   try {
@@ -419,7 +435,9 @@ scanButton.addEventListener("click", async () => {
   } finally {
     setBusy(false);
   }
-});
+}
+
+scanButton.addEventListener("click", runScan);
 
 connectButton.addEventListener("click", async () => {
   const uri = uriSelect.value;
@@ -791,4 +809,5 @@ requestJson("/api/status")
   .then(renderStatus)
   .catch((error) => {
     renderStatus({ status: "error", message: error.message, connected: false, uri: null });
-  });
+  })
+  .finally(runScan);
