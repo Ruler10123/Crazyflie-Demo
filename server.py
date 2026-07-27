@@ -158,13 +158,12 @@ class DroneState:
                 self.message = "No Crazyflie is connected."
                 return {"ok": True, "message": self.message, "status": self.as_dict()}
 
-        # Tell the running script to bail out of its loops, then cut the motors.
-        # emergency_stop also halts an active MotionCommander's background
-        # setpoint thread, which would otherwise re-send hover setpoints and
-        # override a one-shot stop.
+        # Tell the running script to bail out of its loops, then land gracefully.
+        # flight.land() lets MotionCommander manage its own background setpoint
+        # thread during the descent, rather than overriding it with a raw stop.
         cancellation.request_stop()
         if flight is not None:
-            flight.emergency_stop()
+            flight.land()
         else:
             stop_drone(scf)
         self.set_status("connected", "Stopped.")
@@ -205,7 +204,7 @@ class DroneState:
                     function(scf, **args)
 
             if cancellation.stopping():
-                flight.emergency_stop()
+                flight.land()
                 self.set_status("connected", "Stopped.")
                 return {"ok": True, "message": "Stopped.", "status": self.as_dict()}
 
@@ -321,7 +320,7 @@ class ScriptFlightSession:
         self.scf = scf
         self.mc = None
         # Guards self.mc: the stop handler runs on a different thread than the
-        # script and may call emergency_stop() while the script owns the mc.
+        # script and may call land() while the script owns the mc.
         self._lock = threading.Lock()
 
     def ensure_flying(self, height_m=0.3):
@@ -347,21 +346,6 @@ class ScriptFlightSession:
             self.mc = None
         if mc is not None:
             mc.land()
-
-    def emergency_stop(self):
-        """Cut the motors now. Stops the MotionCommander's background setpoint
-        thread first so it can't re-send hover setpoints over the stop."""
-        with self._lock:
-            mc = self.mc
-            self.mc = None
-        if mc is not None:
-            thread = getattr(mc, "_thread", None)
-            if thread is not None:
-                try:
-                    thread.stop()
-                except Exception:
-                    pass
-        stop_drone(self.scf)
 
 
 def clamp_script_number(value, minimum, maximum, fallback):

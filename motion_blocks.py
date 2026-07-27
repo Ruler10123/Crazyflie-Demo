@@ -1,6 +1,5 @@
 import threading
 import time
-from contextlib import contextmanager
 
 from cflib.crazyflie.log import LogConfig
 from cflib.positioning.motion_commander import MotionCommander
@@ -17,34 +16,6 @@ def clamp_number(value, minimum, maximum, fallback):
     except (TypeError, ValueError):
         number = fallback
     return max(minimum, min(number, maximum))
-
-
-def _hard_stop_flight(scf, mc):
-    """Cut motors now: stop the background setpoint thread so it can't re-send
-    hover, then zero thrust. No graceful descent."""
-    thread = getattr(mc, "_thread", None)
-    if thread is not None:
-        try:
-            thread.stop()
-        except Exception:
-            pass
-    scf.cf.commander.send_stop_setpoint()
-    scf.cf.commander.send_notify_setpoint_stop()
-
-
-@contextmanager
-def _flight(scf, default_height=DEFAULT_HEIGHT):
-    """Take off, yield the MotionCommander, and on exit either land normally or --
-    if a stop was requested -- hard-cut instead of descending gracefully."""
-    mc = MotionCommander(scf, default_height=default_height)
-    mc.take_off()
-    try:
-        yield mc
-    finally:
-        if cancellation.stopping():
-            _hard_stop_flight(scf, mc)
-        else:
-            mc.land()
 
 
 def move_linear_simple(scf, distance_m=0.5, turn_degrees=180, mc=None):
@@ -66,12 +37,12 @@ def move_linear_simple(scf, distance_m=0.5, turn_degrees=180, mc=None):
         _steps(mc)
         return
 
-    with _flight(scf) as mc:
+    with MotionCommander(scf, default_height=DEFAULT_HEIGHT) as mc:
         _steps(mc)
 
 
 def take_off_simple(scf):
-    with _flight(scf):
+    with MotionCommander(scf, default_height=DEFAULT_HEIGHT):
         cancellation.sleep(3)
 
 
@@ -101,7 +72,7 @@ def move_box_limit(scf, duration_seconds=10.0):
 
     logconf.start()
     try:
-        with _flight(scf) as mc:
+        with MotionCommander(scf, default_height=DEFAULT_HEIGHT) as mc:
             body_x_cmd = 0.2
             body_y_cmd = 0.1
             max_vel = 0.2
