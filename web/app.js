@@ -17,7 +17,7 @@ const clearButton = document.querySelector("#clearButton");
 
 const BLOCK_GAP = 8;
 const STACK_ORIGIN_DEFAULT = { x: 24, y: 24 };
-const POWER_REFRESH_MS = 2000;
+const POWER_REFRESH_MS = 10000;
 const LANGUAGE_KEY = "crazyflieBlocksLanguage";
 const SUPPORTED_LANGUAGES = ["en", "fr"];
 const DEFAULT_BLOCK_DEFINITIONS = [
