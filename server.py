@@ -23,7 +23,7 @@ WEB_ROOT = ROOT / "web"
 CACHE_DIR = ROOT / ".cache" / "cflib"
 CONNECT_TIMEOUT_SECONDS = 15
 PROBE_TIMEOUT_SECONDS = 8
-MOTION_COMMANDS = {"takeoff", "forward", "right", "move_linear_simple"}
+MOTION_COMMANDS = {"takeoff", "forward", "right", "move_linear_simple", "figure_eight"}
 
 
 def close_link_quietly(scf):
@@ -391,6 +391,24 @@ def install_shutdown_handlers():
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
+
+    def end_headers(self):
+        # SimpleHTTPRequestHandler sends Last-Modified but no Cache-Control, so
+        # browsers are free to guess a freshness lifetime and serve app.js /
+        # blocks.js from cache without revalidating. Edits then never show up
+        # until a hard reload. This is a local dev server; never cache.
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        super().end_headers()
+
+    def handle_one_request(self):
+        try:
+            super().handle_one_request()
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            # The page was reloaded or closed while we were still writing.
+            # Routine, and the error response we would try to send has nowhere
+            # to go, so log one line instead of a traceback per aborted request.
+            self.log_message("client disconnected before the response was sent")
+            self.close_connection = True
 
     def do_GET(self):
         parsed = urlparse(self.path)

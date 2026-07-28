@@ -1,7 +1,7 @@
 import time
 
 import cancellation
-from motion_blocks import move_box_limit, move_linear_simple, take_off_simple
+from motion_blocks import figure_eight, move_box_limit, move_linear_simple, take_off_simple
 
 
 def clamp_number(value, minimum, maximum, fallback):
@@ -115,6 +115,7 @@ BLOCK_FUNCTIONS = {
     "right": right,
     "land": land,
     "move_linear_simple": move_linear_simple,
+    "figure_eight": figure_eight,
     "take_off_simple": take_off_simple,
     "move_box_limit": move_box_limit,
 }

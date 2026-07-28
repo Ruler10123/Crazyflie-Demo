@@ -52,6 +52,20 @@ window.BLOCK_DEFINITIONS = [
     ],
   },
   {
+    command: "figure_eight",
+    label: { en: "figure 8", fr: "huit" },
+    style: "motion",
+    description: {
+      en: "Fly a figure 8: one loop left, then one loop right (needs a flow deck).",
+      fr: "Voler en huit : une boucle à gauche, puis une boucle à droite (flow deck requis).",
+    },
+    inputs: [
+      { name: "radius_m", label: { en: "radius m", fr: "rayon m" }, type: "number", value: 0.3, min: 0.1, max: 1, step: 0.05 },
+      { name: "velocity_m_s", label: { en: "speed m/s", fr: "vitesse m/s" }, type: "number", value: 0.3, min: 0.1, max: 0.6, step: 0.05 },
+      { name: "laps", label: { en: "laps", fr: "tours" }, type: "number", value: 1, min: 1, max: 5, step: 1 },
+    ],
+  },
+  {
     command: "take_off_simple",
     label: { en: "take off simple", fr: "décollage simple" },
     style: "motion",

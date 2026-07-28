@@ -13,8 +13,8 @@ const startButton = document.querySelector("#startButton");
 const stopButton = document.querySelector("#stopButton");
 const clearButton = document.querySelector("#clearButton");
 
-const SNAP_GAP = 8;
-const SNAP_THRESHOLD = 32;
+const BLOCK_GAP = 8;
+const STACK_ORIGIN_DEFAULT = { x: 24, y: 24 };
 const LANGUAGE_KEY = "crazyflieBlocksLanguage";
 const SUPPORTED_LANGUAGES = ["en", "fr"];
 const DEFAULT_BLOCK_DEFINITIONS = [
@@ -57,6 +57,20 @@ const DEFAULT_BLOCK_DEFINITIONS = [
     inputs: [
       { name: "distance_m", label: { en: "distance m", fr: "distance m" }, type: "number", value: 0.5, min: 0.1, max: 2, step: 0.1 },
       { name: "turn_degrees", label: { en: "turn deg", fr: "rotation deg" }, type: "number", value: 180, min: 1, max: 360, step: 1 },
+    ],
+  },
+  {
+    command: "figure_eight",
+    label: { en: "figure 8", fr: "huit" },
+    style: "motion",
+    description: {
+      en: "Fly a figure 8: one loop left, then one loop right (needs a flow deck).",
+      fr: "Voler en huit : une boucle à gauche, puis une boucle à droite (flow deck requis).",
+    },
+    inputs: [
+      { name: "radius_m", label: { en: "radius m", fr: "rayon m" }, type: "number", value: 0.3, min: 0.1, max: 1, step: 0.05 },
+      { name: "velocity_m_s", label: { en: "speed m/s", fr: "vitesse m/s" }, type: "number", value: 0.3, min: 0.1, max: 0.6, step: 0.05 },
+      { name: "laps", label: { en: "laps", fr: "tours" }, type: "number", value: 1, min: 1, max: 5, step: 1 },
     ],
   },
   {
@@ -157,11 +171,17 @@ const TRANSLATIONS = {
 let currentLanguage = getInitialLanguage();
 
 const blocks = [];
+// The script is one ordered stack. This array is the source of truth; pixel
+// positions are always derived from it by layoutStack(), never the reverse.
+const scriptOrder = [];
+// Where the top of the stack sits on the canvas; moves when its head is dropped.
+const stackOrigin = { ...STACK_ORIGIN_DEFAULT };
 let connected = false;
-let activeDragBlock = null;
+let dragGroup = [];
+let dragLayer = null;
+let dropIndex = null;
 let activeDragPointerId = null;
 let dragOffset = { x: 0, y: 0 };
-let dragSource = null;
 let blockCounter = 0;
 let lastStatus = null;
 
@@ -206,6 +226,7 @@ function applyLanguage() {
 
   localizeUriSelect();
   updateBlockLanguage();
+  layoutStack(); // relabelling can change block heights
   if (lastStatus) {
     renderStatus(lastStatus);
   } else {
@@ -477,9 +498,6 @@ function makeScriptBlock(sourceBlock) {
   const block = sourceBlock.cloneNode(true);
   block.id = `script-block-${blockCounter}`;
   block.classList.add("script-block");
-  block.style.position = "absolute";
-  block.style.left = "24px";
-  block.style.top = "24px";
   block.draggable = false;
   block.dataset.scriptId = String(blockCounter);
   blockCounter += 1;
@@ -489,8 +507,7 @@ function makeScriptBlock(sourceBlock) {
   removeButton.textContent = "x";
   removeButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    block.remove();
-    updatePlaceholder();
+    removeScriptBlock(block);
   });
 
   block.append(removeButton);
@@ -498,151 +515,173 @@ function makeScriptBlock(sourceBlock) {
   return block;
 }
 
-function updatePlaceholder() {
-  const hasBlocks = scriptStack.querySelector(".script-block") !== null;
-  scriptPlaceholder.hidden = hasBlocks;
+// Removes one block only; the rest of the stack closes the gap.
+function removeScriptBlock(block) {
+  const index = scriptOrder.indexOf(block);
+  if (index !== -1) scriptOrder.splice(index, 1);
+  block.remove();
+  layoutStack();
+  updatePlaceholder();
 }
 
-function getSnappedPosition(block, x, y) {
-  const existingBlocks = Array.from(scriptStack.querySelectorAll(".script-block")).filter((candidate) => candidate !== block);
-  let best = { x, y, distance: Infinity, snapSide: null, target: null };
+function updatePlaceholder() {
+  scriptPlaceholder.hidden = scriptOrder.length > 0;
+}
 
-  const blockWidth = block.offsetWidth;
-  const blockLeft = x;
-  const blockRight = x + blockWidth;
+// Rewrites every block position from scriptOrder. Pass a gap index/height to
+// open a slot for the block being dragged; returns where that slot landed.
+function layoutStack(gapIndex = null, gapHeight = 0) {
+  let top = stackOrigin.y;
+  let gapTop = null;
 
-  existingBlocks.forEach((candidate) => {
-    const rect = candidate.getBoundingClientRect();
-    const stackRect = scriptStack.getBoundingClientRect();
-    const candidateX = rect.left - stackRect.left;
-    const candidateY = rect.top - stackRect.top;
-    const candidateWidth = rect.width;
-    const candidateLeft = candidateX;
-    const candidateRight = candidateX + candidateWidth;
-
-    const overlap = Math.min(blockRight, candidateRight) - Math.max(blockLeft, candidateLeft);
-    const horizontalMatch = overlap > Math.min(blockWidth, candidateWidth) * 0.4;
-    const edgeNear = Math.abs(blockLeft - candidateRight) < SNAP_THRESHOLD || Math.abs(blockRight - candidateLeft) < SNAP_THRESHOLD;
-    if (!horizontalMatch && !edgeNear) return;
-
-    const bottomY = candidateY + rect.height + SNAP_GAP;
-    const topY = candidateY - block.offsetHeight - SNAP_GAP;
-    const bottomDistance = Math.abs(bottomY - y);
-    const topDistance = Math.abs(topY - y);
-
-    if (bottomDistance < best.distance && bottomDistance < SNAP_THRESHOLD) {
-      best = { x: candidateX, y: bottomY, distance: bottomDistance, snapSide: "bottom", target: candidate };
+  scriptOrder.forEach((block, index) => {
+    if (index === gapIndex) {
+      gapTop = top;
+      top += gapHeight + BLOCK_GAP;
     }
-    if (topDistance < best.distance && topDistance < SNAP_THRESHOLD) {
-      best = { x: candidateX, y: topY, distance: topDistance, snapSide: "top", target: candidate };
-    }
+    block.style.left = `${stackOrigin.x}px`;
+    block.style.top = `${top}px`;
+    top += block.offsetHeight + BLOCK_GAP;
   });
 
-  if (best.target) {
-    showSnapPreview(best.target, best.snapSide);
-    return best;
-  }
+  if (gapIndex === scriptOrder.length) gapTop = top;
+  return gapTop;
+}
 
-  hideSnapPreview();
-  return { x, y };
+// The stack sits wherever its head was dropped, kept inside the canvas.
+function setStackOrigin(x, y, width) {
+  stackOrigin.x = Math.max(0, Math.min(x, scriptStack.clientWidth - width));
+  stackOrigin.y = Math.max(0, y);
+}
+
+function groupHeight(list) {
+  if (list.length === 0) return 0;
+  return list.reduce((total, block) => total + block.offsetHeight + BLOCK_GAP, 0) - BLOCK_GAP;
+}
+
+// The only viewport-to-stack conversions: keep scroll offsets out of callers.
+function stackY(clientY) {
+  return clientY - scriptStack.getBoundingClientRect().top - scriptStack.clientTop + scriptStack.scrollTop;
+}
+
+function stackX(clientX) {
+  return clientX - scriptStack.getBoundingClientRect().left - scriptStack.clientLeft + scriptStack.scrollLeft;
+}
+
+function getInsertionIndex(clientY) {
+  const y = stackY(clientY);
+  let index = scriptOrder.findIndex((block) => y < block.offsetTop + block.offsetHeight / 2);
+  if (index === -1) index = scriptOrder.length;
+
+  // start heads the script, so nothing may be inserted above it.
+  if (dragGroup[0]?.dataset.command === "start") return 0;
+  if (scriptOrder[0]?.dataset.command === "start") return Math.max(1, index);
+  return index;
 }
 
 function startToolboxDrag(event) {
-  if (event.button !== 0) return;
+  if (event.button !== 0 || dragLayer) return;
   if (event.target.closest("input")) return;
+
   const source = event.currentTarget;
   const sourceRect = source.getBoundingClientRect();
-  dragSource = source;
-
-  const block = makeScriptBlock(source);
-  block.classList.add("floating-block", "dragging");
-  block.style.position = "fixed";
-  block.style.left = `${sourceRect.left}px`;
-  block.style.top = `${sourceRect.top}px`;
-  block.style.width = `${sourceRect.width}px`;
-  block.style.opacity = "0.92";
-  document.body.append(block);
-
-  activeDragBlock = block;
-  activeDragPointerId = event.pointerId;
-  dragOffset = {
+  beginDrag([makeScriptBlock(source)], event, {
     x: event.clientX - sourceRect.left,
     y: event.clientY - sourceRect.top,
-  };
-  document.addEventListener("pointermove", moveActiveDragBlock);
-  document.addEventListener("pointerup", endActiveDragBlock);
-  document.addEventListener("pointercancel", endActiveDragBlock);
-  event.preventDefault();
+  });
 }
 
 function startScriptBlockDrag(event) {
-  if (event.button !== 0) return;
+  if (event.button !== 0 || dragLayer) return;
   if (event.target.classList.contains("remove-block")) return;
   if (event.target.closest("input")) return;
 
   const block = event.currentTarget;
-  activeDragBlock = block;
-  activeDragPointerId = event.pointerId;
-  dragOffset = {
-    x: event.clientX - block.getBoundingClientRect().left,
-    y: event.clientY - block.getBoundingClientRect().top,
+  const index = scriptOrder.indexOf(block);
+  if (index === -1) return;
+
+  const blockRect = block.getBoundingClientRect();
+  const offset = {
+    x: event.clientX - blockRect.left,
+    y: event.clientY - blockRect.top,
   };
-  block.classList.add("dragging");
+
+  // Grabbing a block takes everything below it, so the stack above closes up.
+  const group = scriptOrder.splice(index);
+  layoutStack();
+  beginDrag(group, event, offset);
+}
+
+// Both drag paths funnel here: the group rides in a fixed layer on <body> so it
+// is never clipped by the canvas and can be dragged off it to delete.
+function beginDrag(group, event, offset) {
+  dragGroup = group;
+  dragOffset = offset;
+  dropIndex = null;
+  activeDragPointerId = event.pointerId;
+
+  dragLayer = document.createElement("div");
+  dragLayer.className = "drag-layer";
+  // Match the canvas so blocks keep the width they will have once dropped.
+  dragLayer.style.width = `${scriptStack.clientWidth}px`;
+
+  // Attach first: offsetHeight is 0 for a detached element.
+  document.body.append(dragLayer);
+
+  let top = 0;
+  group.forEach((block) => {
+    block.classList.add("floating-block");
+    block.style.left = "0px";
+    dragLayer.append(block);
+    block.style.top = `${top}px`;
+    top += block.offsetHeight + BLOCK_GAP;
+  });
+
+  // Seed the drop target from the initial position: a press-and-release with no
+  // movement must put the group back, not discard it.
+  moveActiveDragBlock(event);
+
   document.addEventListener("pointermove", moveActiveDragBlock);
   document.addEventListener("pointerup", endActiveDragBlock);
   document.addEventListener("pointercancel", endActiveDragBlock);
   event.preventDefault();
 }
 
+function moveDragLayer(event) {
+  dragLayer.style.left = `${event.clientX - dragOffset.x}px`;
+  dragLayer.style.top = `${event.clientY - dragOffset.y}px`;
+}
+
 function moveActiveDragBlock(event) {
-  if (!activeDragBlock || event.pointerId !== activeDragPointerId) return;
-  const rect = scriptStack.getBoundingClientRect();
+  if (!dragLayer || event.pointerId !== activeDragPointerId) return;
+  moveDragLayer(event);
 
-  if (dragSource) {
-    activeDragBlock.style.left = `${event.clientX - dragOffset.x}px`;
-    activeDragBlock.style.top = `${event.clientY - dragOffset.y}px`;
-
-    if (isPointInStage(event)) {
-      const rawX = event.clientX - rect.left - dragOffset.x;
-      const rawY = event.clientY - rect.top - dragOffset.y;
-      const boundedX = Math.max(0, Math.min(rawX, rect.width - activeDragBlock.offsetWidth));
-      const boundedY = Math.max(0, Math.min(rawY, rect.height - activeDragBlock.offsetHeight));
-      getSnappedPosition(activeDragBlock, boundedX, boundedY);
-      scriptStack.classList.add("drag-over");
-    } else {
-      hideSnapPreview();
-      scriptStack.classList.remove("drag-over");
-    }
+  if (!isPointInStage(event)) {
+    dropIndex = null;
+    layoutStack();
+    hideSnapPreview();
+    scriptStack.classList.remove("drag-over");
     return;
   }
 
-  const rawX = event.clientX - rect.left - dragOffset.x;
-  const rawY = event.clientY - rect.top - dragOffset.y;
-  const boundedX = Math.max(0, Math.min(rawX, rect.width - activeDragBlock.offsetWidth));
-  const boundedY = Math.max(0, Math.min(rawY, rect.height - activeDragBlock.offsetHeight));
-  const snapped = getSnappedPosition(activeDragBlock, boundedX, boundedY);
-  activeDragBlock.style.left = `${snapped.x}px`;
-  activeDragBlock.style.top = `${snapped.y}px`;
+  dropIndex = getInsertionIndex(event.clientY);
+  const height = groupHeight(dragGroup);
+  showSnapPreview(layoutStack(dropIndex, height), height);
+  scriptStack.classList.add("drag-over");
 }
 
-function showSnapPreview(targetBlock, side) {
+function showSnapPreview(top, height) {
   hideSnapPreview();
-  if (!targetBlock || !side || !activeDragBlock) return;
+  // Nothing to slot between when the canvas is empty: the group defines its own
+  // position, so the drag layer alone shows where it will land.
+  if (top === null || scriptOrder.length === 0) return;
 
   const preview = document.createElement("div");
   preview.className = "snap-preview";
-  preview.dataset.snapTarget = targetBlock.dataset.scriptId;
-  preview.dataset.snapSide = side;
-
-  const targetRect = targetBlock.getBoundingClientRect();
-  const stackRect = scriptStack.getBoundingClientRect();
-  const left = targetRect.left - stackRect.left;
-  const top = targetRect.top - stackRect.top;
-
-  preview.style.left = `${left}px`;
-  preview.style.width = `${targetRect.width}px`;
-  preview.style.height = `${activeDragBlock.offsetHeight}px`;
-  preview.style.top = side === "bottom" ? `${top + targetRect.height + 4}px` : `${top - activeDragBlock.offsetHeight - 4}px`;
+  preview.style.left = `${stackOrigin.x}px`;
+  preview.style.top = `${top}px`;
+  preview.style.width = `${dragGroup[0].offsetWidth}px`;
+  preview.style.height = `${height}px`;
   scriptStack.append(preview);
 }
 
@@ -651,40 +690,35 @@ function hideSnapPreview() {
 }
 
 function endActiveDragBlock(event) {
-  if (!activeDragBlock || event.pointerId !== activeDragPointerId) return;
+  if (!dragLayer || event.pointerId !== activeDragPointerId) return;
 
   document.removeEventListener("pointermove", moveActiveDragBlock);
   document.removeEventListener("pointerup", endActiveDragBlock);
   document.removeEventListener("pointercancel", endActiveDragBlock);
   hideSnapPreview();
 
-  if (!isPointInStage(event)) {
-    activeDragBlock.remove();
-  } else if (dragSource) {
-    const rect = scriptStack.getBoundingClientRect();
-    const rawX = event.clientX - rect.left - dragOffset.x;
-    const rawY = event.clientY - rect.top - dragOffset.y;
-    const boundedX = Math.max(0, Math.min(rawX, rect.width - activeDragBlock.offsetWidth));
-    const boundedY = Math.max(0, Math.min(rawY, rect.height - activeDragBlock.offsetHeight));
-    const snapped = getSnappedPosition(activeDragBlock, boundedX, boundedY);
-    hideSnapPreview();
-
-    activeDragBlock.classList.remove("floating-block", "dragging");
-    activeDragBlock.style.position = "absolute";
-    activeDragBlock.style.width = "";
-    activeDragBlock.style.left = `${snapped.x}px`;
-    activeDragBlock.style.top = `${snapped.y}px`;
-    activeDragBlock.style.opacity = "1";
-    scriptStack.append(activeDragBlock);
+  if (dropIndex === null) {
+    // Dropped outside the canvas: discard the whole dragged group.
+    dragGroup.forEach((block) => block.remove());
   } else {
-    activeDragBlock.style.opacity = "1";
-    activeDragBlock.classList.remove("dragging");
+    // Dropping the head of the stack moves the whole stack to that spot.
+    if (dropIndex === 0) {
+      const layerRect = dragLayer.getBoundingClientRect();
+      setStackOrigin(stackX(layerRect.left), stackY(layerRect.top), dragGroup[0].offsetWidth);
+    }
+    scriptOrder.splice(dropIndex, 0, ...dragGroup);
+    dragGroup.forEach((block) => block.classList.remove("floating-block"));
+    // Append in stack order so DOM order matches script order.
+    scriptOrder.forEach((block) => scriptStack.append(block));
+    layoutStack();
   }
 
-  scriptStack.classList.remove("drag-over");
-  activeDragBlock = null;
+  dragLayer.remove();
+  dragLayer = null;
+  dragGroup = [];
+  dropIndex = null;
   activeDragPointerId = null;
-  dragSource = null;
+  scriptStack.classList.remove("drag-over");
   updatePlaceholder();
 }
 
@@ -694,7 +728,9 @@ function isPointInStage(event) {
 }
 
 clearButton.addEventListener("click", () => {
-  scriptStack.querySelectorAll(".script-block").forEach((block) => block.remove());
+  scriptOrder.forEach((block) => block.remove());
+  scriptOrder.length = 0;
+  Object.assign(stackOrigin, STACK_ORIGIN_DEFAULT);
   updatePlaceholder();
 });
 
@@ -704,23 +740,18 @@ async function runCurrentScript() {
     return;
   }
 
-  const blocksInStack = Array.from(scriptStack.querySelectorAll(".script-block"));
-  if (blocksInStack.length === 0) {
+  if (scriptOrder.length === 0) {
     statusMessage.textContent = t("addStartAndCommands");
     return;
   }
 
-  const sortedBlocks = blocksInStack.slice().sort((a, b) => {
-    return parseInt(a.style.top || "0", 10) - parseInt(b.style.top || "0", 10);
-  });
-
-  const startIndex = sortedBlocks.findIndex((block) => block.dataset.command === "start");
-  if (startIndex === -1) {
+  // start heads the stack, so the script is everything after it.
+  if (scriptOrder[0].dataset.command !== "start") {
     statusMessage.textContent = t("placeStartBlock");
     return;
   }
 
-  const script = sortedBlocks.slice(startIndex + 1).map(getScriptCommand).filter(Boolean);
+  const script = scriptOrder.slice(1).map(getScriptCommand).filter(Boolean);
   if (script.length === 0) {
     statusMessage.textContent = t("addBlocksBelowStart");
     return;
@@ -800,6 +831,15 @@ languageSelect.addEventListener("change", () => {
   currentLanguage = SUPPORTED_LANGUAGES.includes(languageSelect.value) ? languageSelect.value : "en";
   localStorage.setItem(LANGUAGE_KEY, currentLanguage);
   applyLanguage();
+});
+
+// Block heights depend on label wrapping, and a narrower canvas can push the
+// stack origin out of bounds.
+window.addEventListener("resize", () => {
+  if (scriptOrder.length > 0) {
+    setStackOrigin(stackOrigin.x, stackOrigin.y, scriptOrder[0].offsetWidth);
+  }
+  layoutStack();
 });
 
 renderBlockToolbox();

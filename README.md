@@ -51,7 +51,9 @@ http://127.0.0.1:8765
 
 Connecting also sends a shorter low-thrust identify pulse. Keep the Crazyflie flat and clear of hands before connecting.
 
-Blocks with numbers include editable fields. Takeoff height, forward distance, and turn angle use `MotionCommander` so the values map to meters, centimeters, and degrees. The backend clamps values to conservative ranges before sending commands to the Crazyflie.
+Blocks with numbers include editable fields. Takeoff height, forward distance, and turn angle use `MotionCommander` so the values map to meters, centimeters, and degrees. `figure 8` takes a loop radius in meters, a speed in meters per second, and a lap count. The backend clamps values to conservative ranges before sending commands to the Crazyflie.
+
+`figure 8` and `move in box limit` need a flow deck attached, and will refuse to fly without one. At the default 0.3 m radius the manoeuvre spans about 1.2 m by 0.6 m, so give it a clear area of roughly 2 m by 1.5 m.
 
 ## Notes
 
