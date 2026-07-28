@@ -123,6 +123,41 @@ h1 {
   line-height: 1.25;
 }
 
+.power-summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7f9fd;
+}
+
+.power-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+#powerText {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.tiny-button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .field {
   display: grid;
   gap: 6px;

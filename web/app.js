@@ -5,6 +5,8 @@ const uriSelect = document.querySelector("#uriSelect");
 const statusBadge = document.querySelector("#statusBadge");
 const statusMessage = document.querySelector("#statusMessage");
 const connectionText = document.querySelector("#connectionText");
+const powerText = document.querySelector("#powerText");
+const powerRefreshButton = document.querySelector("#powerRefreshButton");
 const languageSelect = document.querySelector("#languageSelect");
 const blockList = document.querySelector("#blockList");
 const scriptStack = document.querySelector("#scriptStack");
@@ -15,6 +17,7 @@ const clearButton = document.querySelector("#clearButton");
 
 const BLOCK_GAP = 8;
 const STACK_ORIGIN_DEFAULT = { x: 24, y: 24 };
+const POWER_REFRESH_MS = 2000;
 const LANGUAGE_KEY = "crazyflieBlocksLanguage";
 const SUPPORTED_LANGUAGES = ["en", "fr"];
 const DEFAULT_BLOCK_DEFINITIONS = [
@@ -129,6 +132,13 @@ const TRANSLATIONS = {
     connectBeforeStop: "Connect the Crazyflie before stopping.",
     stopping: "Stopping...",
     runningScript: "Running: {commands}",
+    powerStatus: "Power",
+    powerUnavailable: "Unavailable",
+    powerReading: "Reading...",
+    powerVoltageOnly: "{voltage} V",
+    powerLevel: "{level}% ({voltage} V)",
+    powerLevelEstimated: "{level}% est. ({voltage} V)",
+    refreshPower: "Refresh",
   },
   fr: {
     languageLabel: "Langue",
@@ -165,6 +175,13 @@ const TRANSLATIONS = {
     connectBeforeStop: "Connectez le Crazyflie avant d'arrêter.",
     stopping: "Arrêt...",
     runningScript: "Exécution : {commands}",
+    powerStatus: "Alimentation",
+    powerUnavailable: "Indisponible",
+    powerReading: "Lecture...",
+    powerVoltageOnly: "{voltage} V",
+    powerLevel: "{level} % ({voltage} V)",
+    powerLevelEstimated: "{level} % est. ({voltage} V)",
+    refreshPower: "Actualiser",
   },
 };
 
@@ -184,6 +201,9 @@ let activeDragPointerId = null;
 let dragOffset = { x: 0, y: 0 };
 let blockCounter = 0;
 let lastStatus = null;
+let lastPower = null;
+let powerPollId = null;
+let powerRequestInFlight = false;
 
 function getInitialLanguage() {
   const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
@@ -227,6 +247,7 @@ function applyLanguage() {
   localizeUriSelect();
   updateBlockLanguage();
   layoutStack(); // relabelling can change block heights
+  renderPower(lastPower);
   if (lastStatus) {
     renderStatus(lastStatus);
   } else {
@@ -282,6 +303,7 @@ function setBusy(isBusy, allowStop = false) {
   scanButton.disabled = isBusy;
   connectButton.disabled = isBusy;
   disconnectButton.disabled = isBusy;
+  powerRefreshButton.disabled = isBusy || !connected;
   startButton.disabled = isBusy || !connected;
   // Keep Stop clickable while a script runs so it can abort the run.
   stopButton.disabled = (isBusy && !allowStop) || !connected;
@@ -297,9 +319,71 @@ function renderStatus(status) {
   connectionText.title = status.connected && status.uri ? status.uri : "";
   startButton.disabled = !status.connected;
   stopButton.disabled = !status.connected;
+  powerRefreshButton.disabled = !status.connected;
   scriptStack.classList.toggle("connected", status.connected);
 
   refreshUriOptions(status.connected ? status.uri : null);
+  if (status.power) {
+    renderPower(status.power);
+  } else if (!status.connected) {
+    renderPower(null);
+  }
+  syncPowerPolling(status.connected);
+}
+
+function renderPower(power) {
+  lastPower = power;
+  if (!power || power.available === false) {
+    powerText.textContent = t("powerUnavailable");
+    powerText.title = power?.message || "";
+    return;
+  }
+
+  const voltage = typeof power.voltage === "number" ? power.voltage.toFixed(2) : null;
+  const level = typeof power.batteryLevel === "number" ? Math.round(power.batteryLevel) : null;
+
+  if (level !== null && voltage !== null) {
+    powerText.textContent = t(power.estimated ? "powerLevelEstimated" : "powerLevel", { level, voltage });
+  } else if (voltage !== null) {
+    powerText.textContent = t("powerVoltageOnly", { voltage });
+  } else if (level !== null) {
+    powerText.textContent = `${level}%`;
+  } else {
+    powerText.textContent = t("powerUnavailable");
+  }
+  powerText.title = power.message || "";
+}
+
+function syncPowerPolling(isConnected) {
+  if (!isConnected) {
+    if (powerPollId !== null) {
+      clearInterval(powerPollId);
+      powerPollId = null;
+    }
+    return;
+  }
+
+  if (powerPollId === null) {
+    refreshPower();
+    powerPollId = setInterval(refreshPower, POWER_REFRESH_MS);
+  }
+}
+
+async function refreshPower() {
+  if (!connected || powerRequestInFlight) return;
+  powerRequestInFlight = true;
+  powerText.textContent = t("powerReading");
+  try {
+    const payload = await requestJson("/api/power");
+    renderPower(payload.power);
+    if (payload.status) {
+      lastStatus = payload.status;
+    }
+  } catch (error) {
+    renderPower({ available: false, message: error.message });
+  } finally {
+    powerRequestInFlight = false;
+  }
 }
 
 function getConnectionLabel(status) {
@@ -826,6 +910,8 @@ stopButton.addEventListener("click", async () => {
     setBusy(false);
   }
 });
+
+powerRefreshButton.addEventListener("click", refreshPower);
 
 languageSelect.addEventListener("change", () => {
   currentLanguage = SUPPORTED_LANGUAGES.includes(languageSelect.value) ? languageSelect.value : "en";

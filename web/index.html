@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crazyflie Blocks</title>
-    <link rel="stylesheet" href="/styles.css?v=20260728a">
+    <link rel="stylesheet" href="/styles.css?v=20260728b">
   </head>
   <body>
     <main class="app-shell">
@@ -34,6 +34,11 @@
           <div class="status-summary">
             <span id="statusBadge" class="status-badge disconnected">Disconnected</span>
             <p id="statusMessage" class="status-message" data-i18n="readyToScan">Ready to scan for Crazyflie.</p>
+          </div>
+          <div class="power-summary">
+            <span class="power-label" data-i18n="powerStatus">Power</span>
+            <strong id="powerText" data-i18n="powerUnavailable">Unavailable</strong>
+            <button id="powerRefreshButton" class="tiny-button" type="button" data-i18n="refreshPower" disabled>Refresh</button>
           </div>
           <label class="field">
             <span data-i18n="droneUri">Drone URI</span>
@@ -79,7 +84,7 @@
       </section>
     </main>
 
-    <script src="/blocks.js?v=20260728a"></script>
-    <script src="/app.js?v=20260728a"></script>
+    <script src="/blocks.js?v=20260728b"></script>
+    <script src="/app.js?v=20260728b"></script>
   </body>
 </html>

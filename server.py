@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
+from cflib.crazyflie.log import LogConfig
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.positioning.motion_commander import MotionCommander
 
@@ -23,6 +24,7 @@ WEB_ROOT = ROOT / "web"
 CACHE_DIR = ROOT / ".cache" / "cflib"
 CONNECT_TIMEOUT_SECONDS = 15
 PROBE_TIMEOUT_SECONDS = 8
+POWER_LOG_TIMEOUT_SECONDS = 2
 MOTION_COMMANDS = {"takeoff", "forward", "right", "move_linear_simple", "figure_eight"}
 
 
@@ -54,6 +56,7 @@ class DroneState:
         self.status = "disconnected"
         self.message = "Ready to scan for Crazyflie."
         self.active_flight = None
+        self.power = {"available": False, "message": "Not connected."}
 
     def as_dict(self):
         with self.lock:
@@ -62,6 +65,7 @@ class DroneState:
                 "uri": self.uri,
                 "message": self.message,
                 "connected": self.scf is not None,
+                "power": self.power,
             }
 
     def set_status(self, status, message, uri=None):
@@ -143,6 +147,7 @@ class DroneState:
             self.uri = None
             self.status = "disconnected"
             self.message = "Disconnected."
+            self.power = {"available": False, "message": "Not connected."}
 
         if scf is not None:
             close_link_quietly(scf)
@@ -220,6 +225,22 @@ class DroneState:
             with self.lock:
                 self.active_flight = None
 
+    def read_power(self):
+        with self.lock:
+            scf = self.scf
+            if scf is None:
+                self.power = {"available": False, "message": "Not connected."}
+                return self.power
+
+        try:
+            power = read_power_log(scf)
+        except Exception as exc:
+            power = {"available": False, "message": str(exc)}
+
+        with self.lock:
+            self.power = power
+        return power
+
 
 STATE = DroneState()
 DRIVERS_READY = False
@@ -287,6 +308,72 @@ def scan_with_availability():
             drone["availability"] = probe_uri(drone["uri"])
 
     return drones
+
+
+def read_power_log(scf):
+    try:
+        data = read_log_values(scf, ["pm.vbat", "pm.batteryLevel", "pm.state"])
+    except Exception:
+        data = read_log_values(scf, ["pm.vbat"])
+    voltage = data.get("pm.vbat")
+    level = data.get("pm.batteryLevel")
+    estimated = False
+
+    if level is None and voltage is not None:
+        level = estimate_battery_percent(voltage)
+        estimated = True
+
+    return {
+        "available": voltage is not None or level is not None,
+        "voltage": voltage,
+        "batteryLevel": level,
+        "estimated": estimated,
+        "state": data.get("pm.state"),
+        "message": "Power data available." if voltage is not None or level is not None else "No power log data.",
+    }
+
+
+def read_log_values(scf, variables):
+    event = threading.Event()
+    result = {}
+    error_box = []
+    config = LogConfig(name="Power", period_in_ms=100)
+
+    for variable in variables:
+        config.add_variable(variable)
+
+    def _data_received(_timestamp, data, _logconf):
+        result.update(data)
+        event.set()
+
+    try:
+        scf.cf.log.add_config(config)
+        config.data_received_cb.add_callback(_data_received)
+        config.start()
+        if not event.wait(POWER_LOG_TIMEOUT_SECONDS):
+            error_box.append(TimeoutError("Timed out while reading power log."))
+    finally:
+        try:
+            config.stop()
+            config.delete()
+        except Exception:
+            pass
+        try:
+            config.data_received_cb.remove_callback(_data_received)
+        except Exception:
+            pass
+
+    if error_box:
+        raise error_box[0]
+    return result
+
+
+def estimate_battery_percent(voltage):
+    try:
+        voltage = float(voltage)
+    except (TypeError, ValueError):
+        return None
+    return round(max(0.0, min(100.0, (voltage - 3.2) / (4.2 - 3.2) * 100.0)))
 
 
 def normalize_command_entry(entry):
@@ -414,6 +501,22 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/status":
             self.send_json(STATE.as_dict())
+            return
+
+        if parsed.path == "/api/power":
+            try:
+                power = STATE.read_power()
+                self.send_json({"ok": True, "power": power, "status": STATE.as_dict()})
+            except Exception as exc:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": str(exc),
+                        "trace": traceback.format_exc(),
+                        "status": STATE.as_dict(),
+                    },
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
             return
 
         if parsed.path == "/api/scan":
