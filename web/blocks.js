@@ -2,7 +2,7 @@ window.BLOCK_DEFINITIONS = [
   {
     command: "start",
     label: { en: "start", fr: "départ" },
-    style: "start",
+    style: "event",
     description: { en: "Start the program from here.", fr: "Démarrer le programme ici." },
   },
   {

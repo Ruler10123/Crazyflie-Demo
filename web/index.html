@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crazyflie Blocks</title>
-    <link rel="stylesheet" href="/styles.css?v=20260729m">
+    <link rel="stylesheet" href="/styles.css?v=20260729r">
   </head>
   <body>
     <main class="app-shell">
@@ -60,7 +60,10 @@
           </div>
 
           <div class="sidebar-page" id="blocksPage" role="tabpanel" data-sidebar-page="blocks" hidden>
-            <div id="blockList" class="block-list"></div>
+            <div class="block-browser">
+              <div id="blockCategories" class="block-categories" role="tablist" aria-label="Block categories"></div>
+              <div id="blockList" class="block-list"></div>
+            </div>
           </div>
         </section>
       </aside>
@@ -92,7 +95,7 @@
       </section>
     </main>
 
-    <script src="/blocks.js?v=20260729m"></script>
-    <script src="/app.js?v=20260729m"></script>
+    <script src="/blocks.js?v=20260729r"></script>
+    <script src="/app.js?v=20260729r"></script>
   </body>
 </html>

@@ -9,6 +9,7 @@
   --blue-dark: #1455b8;
   --green: #1f9d66;
   --orange: #f28c28;
+  --yellow: #f6c23e;
   --red: #dc3f4d;
   --teal: #16a6a3;
   --purple: #6b5de6;
@@ -35,7 +36,7 @@ input {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 400px minmax(0, 1fr);
+  grid-template-columns: 460px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -43,7 +44,9 @@ input {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  height: 100vh;
   padding: 22px;
+  overflow: hidden;
   border-right: 1px solid var(--line);
   background: #eef3fb;
 }
@@ -116,12 +119,15 @@ h1 {
 .sidebar-pages {
   display: grid;
   align-content: start;
+  min-width: 0;
+  min-height: 0;
 }
 
 .sidebar-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: end;
+  min-width: 0;
   margin-bottom: -1px;
 }
 
@@ -173,8 +179,11 @@ h1 {
 .sidebar-page {
   display: grid;
   gap: 14px;
-  min-height: calc(100vh - 148px);
+  min-width: 0;
+  min-height: 0;
+  height: calc(100vh - 148px);
   padding: 16px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 0 0 8px 8px;
   background: var(--panel);
@@ -393,18 +402,72 @@ select {
   white-space: nowrap;
 }
 
+.block-browser {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.block-categories {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.block-category {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-height: 58px;
+  padding: 6px 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.block-category.active {
+  border-color: var(--ink);
+  background: white;
+  color: var(--ink);
+}
+
+.category-swatch {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(24, 32, 51, 0.24);
+  border-radius: 50%;
+  background: var(--category-color);
+}
+
 .block-list {
   display: grid;
+  align-content: start;
   gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .block {
   position: relative;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 7px;
   width: 100%;
+  max-width: 100%;
   min-height: 46px;
   padding: 9px 38px 9px 28px;
   text-align: left;
@@ -443,6 +506,14 @@ select {
   font-weight: 800;
 }
 
+.block-list .block-input {
+  width: 72px;
+}
+
+.block-list .block {
+  padding-right: 30px;
+}
+
 .block-input:focus {
   outline: 2px solid rgba(255, 255, 255, 0.7);
   outline-offset: 2px;
@@ -477,9 +548,9 @@ select {
   transform: translateY(-50%);
 }
 
-/* Domed top marks where the program begins. */
-.block.start {
-  background: var(--purple);
+/* Domed top marks event blocks that start or stop the script. */
+.block.event {
+  background: var(--yellow);
   border-radius: 22px 22px 18px 8px;
   padding-top: 15px;
 }
@@ -755,6 +826,13 @@ select {
   z-index: 10;
   touch-action: none;
   pointer-events: auto;
+}
+
+.script-block.running-block {
+  outline: 4px solid #f6c23e;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px rgba(246, 194, 62, 0.24), inset 0 -3px 0 rgba(0, 0, 0, 0.16);
+  filter: brightness(1.06);
 }
 
 /* Holds the dragged block plus everything below it, outside the canvas so it

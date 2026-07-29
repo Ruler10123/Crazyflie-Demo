@@ -10,6 +10,7 @@ const powerRefreshButton = document.querySelector("#powerRefreshButton");
 const languageButtons = Array.from(document.querySelectorAll(".language-button"));
 const sidebarTabs = Array.from(document.querySelectorAll(".sidebar-tab"));
 const sidebarPages = Array.from(document.querySelectorAll(".sidebar-page"));
+const blockCategories = document.querySelector("#blockCategories");
 const blockList = document.querySelector("#blockList");
 const scriptStack = document.querySelector("#scriptStack");
 const scriptPlaceholder = document.querySelector("#scriptPlaceholder");
@@ -20,10 +21,18 @@ const clearButton = document.querySelector("#clearButton");
 const BLOCK_GAP = 8;
 const STACK_ORIGIN_DEFAULT = { x: 24, y: 24 };
 const POWER_REFRESH_MS = 10000;
+const RUN_STATUS_REFRESH_MS = 150;
 const LANGUAGE_KEY = "crazyflieBlocksLanguage";
 const SUPPORTED_LANGUAGES = ["en", "fr"];
+const BLOCK_CATEGORIES = [
+  { id: "event", label: { en: "Events", fr: "Événements" }, styles: ["event", "stop"], color: "var(--yellow)" },
+  { id: "motion", label: { en: "Motion", fr: "Mouvement" }, styles: ["motion"], color: "var(--orange)" },
+  { id: "fan", label: { en: "Fan", fr: "Hélices" }, styles: ["fan"], color: "var(--green)" },
+  { id: "control", label: { en: "Control", fr: "Contrôle" }, styles: ["control"], color: "var(--purple)" },
+  { id: "wait", label: { en: "Wait", fr: "Attente" }, styles: ["wait"], color: "var(--teal)" },
+];
 const DEFAULT_BLOCK_DEFINITIONS = [
-  { command: "start", label: { en: "start", fr: "départ" }, style: "start", description: { en: "Start the program from here.", fr: "Démarrer le programme ici." } },
+  { command: "start", label: { en: "start", fr: "départ" }, style: "event", description: { en: "Start the program from here.", fr: "Démarrer le programme ici." } },
   {
     command: "spin_motors",
     label: { en: "spin fans", fr: "tourner hélices" },
@@ -222,7 +231,9 @@ let lastStatus = null;
 let lastPower = null;
 let powerPollId = null;
 let powerRequestInFlight = false;
+let runStatusPollId = null;
 let activeSidebarPage = "connect";
+let activeBlockCategory = BLOCK_CATEGORIES[0].id;
 
 function getInitialLanguage() {
   const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
@@ -293,6 +304,7 @@ function localizeUriSelect() {
 }
 
 function updateBlockLanguage() {
+  renderBlockCategories();
   document.querySelectorAll(".block").forEach((block) => {
     const definition = getDefinition(block.dataset.command);
     if (!definition) return;
@@ -370,6 +382,7 @@ function renderStatus(status) {
   } else {
     renderPower(null);
   }
+  highlightActiveBlocks(status.activeBlockIds || []);
   syncPowerPolling(status.connected);
 }
 
@@ -617,10 +630,12 @@ function availabilityLabel(availability) {
 
 function renderBlockToolbox() {
   const definitions = getDefinitions();
+  const category = BLOCK_CATEGORIES.find((candidate) => candidate.id === activeBlockCategory) || BLOCK_CATEGORIES[0];
+  const visibleDefinitions = definitions.filter((definition) => category.styles.includes(definition.style));
   blocks.length = 0;
   blockList.innerHTML = "";
 
-  definitions.forEach((definition) => {
+  visibleDefinitions.forEach((definition) => {
     const block = document.createElement("div");
     block.className = `block ${definition.style}`;
     block.draggable = false;
@@ -632,6 +647,35 @@ function renderBlockToolbox() {
     block.addEventListener("pointerdown", startToolboxDrag);
     blockList.append(block);
     blocks.push(block);
+  });
+}
+
+function renderBlockCategories() {
+  blockCategories.textContent = "";
+  BLOCK_CATEGORIES.forEach((category) => {
+    const button = document.createElement("button");
+    button.className = "block-category";
+    button.classList.toggle("active", category.id === activeBlockCategory);
+    button.type = "button";
+    button.role = "tab";
+    button.setAttribute("aria-selected", String(category.id === activeBlockCategory));
+    button.dataset.category = category.id;
+    button.style.setProperty("--category-color", category.color);
+
+    const swatch = document.createElement("span");
+    swatch.className = "category-swatch";
+    swatch.setAttribute("aria-hidden", "true");
+
+    const label = document.createElement("span");
+    label.textContent = localizedText(category.label);
+
+    button.append(swatch, label);
+    button.addEventListener("click", () => {
+      activeBlockCategory = category.id;
+      renderBlockCategories();
+      renderBlockToolbox();
+    });
+    blockCategories.append(button);
   });
 }
 
@@ -1057,6 +1101,40 @@ function insertGroupIntoBody(body, index, group) {
   updateAllCBlockBodies();
 }
 
+function highlightActiveBlocks(activeIds) {
+  const activeSet = new Set((activeIds || []).map(String));
+  document.querySelectorAll(".script-block.running-block").forEach((block) => {
+    block.classList.remove("running-block");
+  });
+  if (activeSet.size === 0) return;
+  document.querySelectorAll(".script-block").forEach((block) => {
+    block.classList.toggle("running-block", activeSet.has(block.dataset.scriptId));
+  });
+}
+
+function startRunStatusPolling() {
+  stopRunStatusPolling(false);
+  runStatusPollId = setInterval(async () => {
+    try {
+      const status = await requestJson("/api/status");
+      renderStatus(status);
+      if (status.status !== "running") {
+        stopRunStatusPolling(status.status !== "running");
+      }
+    } catch (_error) {
+      // The blocking run request is the source of truth for errors.
+    }
+  }, RUN_STATUS_REFRESH_MS);
+}
+
+function stopRunStatusPolling(clearHighlight = true) {
+  if (runStatusPollId !== null) {
+    clearInterval(runStatusPollId);
+    runStatusPollId = null;
+  }
+  if (clearHighlight) highlightActiveBlocks([]);
+}
+
 function isPointInStage(event) {
   const rect = scriptStack.getBoundingClientRect();
   return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
@@ -1100,6 +1178,7 @@ async function runCurrentScript() {
 
   setBusy(true, true);
   statusMessage.textContent = t("runningScript", { commands: script.map(formatScriptCommand).join(" -> ") });
+  startRunStatusPolling();
   try {
     const payload = await requestJson("/api/run_script", {
       method: "POST",
@@ -1109,6 +1188,7 @@ async function runCurrentScript() {
   } catch (error) {
     renderStatus({ status: "error", message: error.message, connected, uri: uriSelect.value });
   } finally {
+    stopRunStatusPolling();
     setBusy(false);
   }
 }
@@ -1154,6 +1234,7 @@ function cloneCommandEntry(entry) {
   if (typeof entry === "string") return entry;
   return {
     command: entry.command,
+    sourceId: entry.sourceId,
     args: { ...(entry.args || {}) },
   };
 }
@@ -1169,8 +1250,7 @@ function getScriptCommand(block) {
     args[input.name] = Number.isFinite(value) ? value : fallback;
   });
 
-  if (Object.keys(args).length === 0) return command;
-  return { command, args };
+  return { command, sourceId: block.dataset.scriptId, args };
 }
 
 function parseBlockNumber(value) {
@@ -1239,6 +1319,7 @@ window.addEventListener("resize", () => {
   layoutStack();
 });
 
+renderBlockCategories();
 renderBlockToolbox();
 switchSidebarPage(activeSidebarPage);
 applyLanguage();

@@ -56,6 +56,7 @@ class DroneConnection:
         self.status = "connected"
         self.message = f"Connected to {uri}."
         self.active_flight = None
+        self.active_block_id = None
         self.power = {"available": False, "message": "Not read yet."}
 
     def as_dict(self):
@@ -65,13 +66,15 @@ class DroneConnection:
                 "status": self.status,
                 "message": self.message,
                 "connected": self.scf is not None,
+                "activeBlockId": self.active_block_id,
                 "power": self.power,
             }
 
-    def set_status(self, status, message):
+    def set_status(self, status, message, active_block_id=None):
         with self.lock:
             self.status = status
             self.message = message
+            self.active_block_id = active_block_id
 
 
 class DroneState:
@@ -123,6 +126,13 @@ class DroneState:
             "connected": bool(drones),
             "connectedCount": len(drones),
             "drones": drones,
+            "activeBlockIds": sorted(
+                {
+                    drone["activeBlockId"]
+                    for drone in drones
+                    if drone.get("activeBlockId") is not None
+                }
+            ),
             "power": primary["power"] if primary else {"available": False, "message": "Not connected."},
         }
 
@@ -305,11 +315,15 @@ class DroneState:
             for entry in commands:
                 if cancellation.stopping():
                     break
-                command, args = normalize_command_entry(entry)
+                command, args, meta = normalize_command_entry(entry)
                 function = BLOCK_FUNCTIONS.get(command)
                 if function is None:
                     raise ValueError(f"Block is not implemented yet: {command}")
-                connection.set_status("running", f"Running {format_command_for_status(command, args)}...")
+                connection.set_status(
+                    "running",
+                    f"Running {format_command_for_status(command, args)}...",
+                    meta.get("sourceId"),
+                )
                 if command == "takeoff":
                     flight.takeoff(args)
                 elif command in MOTION_COMMANDS:
@@ -525,7 +539,7 @@ def estimate_battery_percent(voltage):
 
 def normalize_command_entry(entry):
     if isinstance(entry, str):
-        return entry, {}
+        return entry, {}, {}
     if not isinstance(entry, dict):
         raise ValueError("Each command must be a string or object.")
 
@@ -539,7 +553,12 @@ def normalize_command_entry(entry):
     if not isinstance(args, dict):
         raise ValueError(f"Command args must be an object: {command}")
 
-    return command, args
+    meta = {}
+    source_id = entry.get("sourceId")
+    if source_id is not None:
+        meta["sourceId"] = str(source_id)
+
+    return command, args, meta
 
 
 def format_command_for_status(command, args):
