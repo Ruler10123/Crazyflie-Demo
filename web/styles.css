@@ -213,7 +213,7 @@ h1 {
 
 .power-summary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 10px;
@@ -228,6 +228,12 @@ h1 {
   font-weight: 800;
 }
 
+.power-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .battery-meter {
   display: grid;
   grid-template-columns: 54px minmax(0, 1fr);
@@ -236,6 +242,20 @@ h1 {
   min-width: 0;
   color: var(--ink);
   font-size: 13px;
+}
+
+.battery-meter.has-uri {
+  grid-template-columns: minmax(0, 1fr) 54px auto;
+}
+
+.battery-uri {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .battery-shell {

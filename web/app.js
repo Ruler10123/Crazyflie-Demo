@@ -5,7 +5,7 @@ const uriSelect = document.querySelector("#uriSelect");
 const statusBadge = document.querySelector("#statusBadge");
 const statusMessage = document.querySelector("#statusMessage");
 const connectionText = document.querySelector("#connectionText");
-const powerText = document.querySelector("#powerText");
+const powerList = document.querySelector("#powerList");
 const powerRefreshButton = document.querySelector("#powerRefreshButton");
 const languageButtons = Array.from(document.querySelectorAll(".language-button"));
 const sidebarTabs = Array.from(document.querySelectorAll(".sidebar-tab"));
@@ -29,7 +29,7 @@ const DEFAULT_BLOCK_DEFINITIONS = [
     label: { en: "spin fans", fr: "tourner hélices" },
     style: "fan",
     description: { en: "Spin the motors for one second.", fr: "Faire tourner les moteurs pendant une seconde." },
-    inputs: [{ name: "duration_seconds", label: { en: "duration sec", fr: "durée s" }, type: "number", value: 1, min: 0.1, max: 50, step: 0.1 }],
+    inputs: [{ name: "duration_seconds", label: { en: "duration sec", fr: "durée s" }, type: "number", value: 1, min: 0.1, step: 0.1 }],
   },
   {
     command: "takeoff",
@@ -281,13 +281,13 @@ function applyLanguage() {
 }
 
 function localizeUriSelect() {
-  const connectedUri = lastStatus?.connected ? lastStatus.uri : null;
+  const connectedUris = new Set(lastStatus?.connected ? (lastStatus.uris || [lastStatus.uri]).filter(Boolean) : []);
   Array.from(uriSelect.options).forEach((option) => {
     if (option.value === "") {
       option.textContent = option.dataset.emptyLabel ? t(option.dataset.emptyLabel) : t("scanFirst");
       return;
     }
-    const availability = option.value === connectedUri ? "connected" : option.dataset.scanAvailability;
+    const availability = connectedUris.has(option.value) ? "connected" : option.dataset.scanAvailability;
     applyOptionLabel(option, availability);
   });
 }
@@ -355,17 +355,19 @@ function renderStatus(status) {
   statusBadge.className = `status-badge ${status.status}`;
   statusMessage.textContent = localizeStatusMessage(status);
   connectionText.textContent = getConnectionLabel(status);
-  connectionText.title = status.connected && status.uri ? status.uri : "";
+  connectionText.title = status.connected ? (status.uris || [status.uri]).filter(Boolean).join(", ") : "";
   startButton.disabled = !status.connected;
   stopButton.disabled = !status.connected;
   powerRefreshButton.disabled = !status.connected;
   scriptStack.classList.toggle("connected", status.connected);
 
-  refreshUriOptions(status.connected ? status.uri : null);
-  if (status.power) {
-    renderPower(status.power);
-    updateOptionPower(status.uri, status.power);
-  } else if (!status.connected) {
+  refreshUriOptions(status.connected ? (status.uris || [status.uri]).filter(Boolean) : []);
+  if (status.connected) {
+    renderPowers(getPowersFromStatus(status), (status.uris || [status.uri]).filter(Boolean));
+    if (status.power) updateOptionPower(status.uri, status.power);
+    (status.drones || []).forEach((drone) => updateOptionPower(drone.uri, drone.power));
+    Object.entries(status.powers || {}).forEach(([uri, power]) => updateOptionPower(uri, power));
+  } else {
     renderPower(null);
   }
   syncPowerPolling(status.connected);
@@ -373,9 +375,68 @@ function renderStatus(status) {
 
 function renderPower(power) {
   lastPower = power;
+  renderPowers({ "": power }, []);
+}
+
+function getPowersFromStatus(status) {
+  const powers = {};
+  (status.drones || []).forEach((drone) => {
+    if (drone.uri) powers[drone.uri] = drone.power || { available: false, message: "Not connected." };
+  });
+  Object.assign(powers, status.powers || {});
+  if (Object.keys(powers).length === 0 && status.uri) {
+    powers[status.uri] = status.power || { available: false, message: "Not connected." };
+  }
+  return powers;
+}
+
+function renderPowers(powers, connectedUris = []) {
+  const entries = Object.entries(powers || {});
+  connectedUris.forEach((uri) => {
+    if (!powers?.[uri]) entries.push([uri, { available: false, message: "Not read yet." }]);
+  });
+
+  powerList.textContent = "";
+  const visibleEntries = entries.length > 0 ? entries : [["", null]];
+  visibleEntries.forEach(([uri, power]) => {
+    const meter = createBatteryMeter(uri);
+    powerList.append(meter);
+    updateBatteryMeter(meter, power);
+  });
+}
+
+function createBatteryMeter(uri) {
+  const meter = document.createElement("div");
+  meter.className = "battery-meter";
+  meter.classList.toggle("has-uri", Boolean(uri));
+  meter.role = "meter";
+  meter.setAttribute("aria-valuemin", "0");
+  meter.setAttribute("aria-valuemax", "100");
+
+  if (uri) {
+    const uriLabel = document.createElement("span");
+    uriLabel.className = "battery-uri";
+    uriLabel.textContent = uri;
+    meter.append(uriLabel);
+  }
+
+  const shell = document.createElement("span");
+  shell.className = "battery-shell";
+  const fill = document.createElement("span");
+  fill.className = "battery-fill";
+  shell.append(fill);
+
+  const label = document.createElement("strong");
+  label.className = "battery-label";
+  label.textContent = t("powerUnavailable");
+  meter.append(shell, label);
+  return meter;
+}
+
+function updateBatteryMeter(meter, power) {
   if (!power || power.available === false) {
-    setBatteryMeter(null, t("powerUnavailable"));
-    powerText.title = power?.message || "";
+    setBatteryMeter(meter, null, power?.message || t("powerUnavailable"));
+    meter.title = power?.message || "";
     return;
   }
 
@@ -383,22 +444,22 @@ function renderPower(power) {
   const meterLevel = level !== null ? level : null;
 
   if (level !== null) {
-    setBatteryMeter(meterLevel, t(power.estimated ? "powerLevelEstimated" : "powerLevel", { level }));
+    setBatteryMeter(meter, meterLevel, t(power.estimated ? "powerLevelEstimated" : "powerLevel", { level }));
   } else {
-    setBatteryMeter(null, t("powerUnavailable"));
+    setBatteryMeter(meter, null, t("powerUnavailable"));
   }
-  powerText.title = power.message || "";
+  meter.title = power.message || "";
 }
 
-function setBatteryMeter(level, label) {
-  const fill = powerText.querySelector(".battery-fill");
-  const text = powerText.querySelector(".battery-label");
+function setBatteryMeter(meter, level, label) {
+  const fill = meter.querySelector(".battery-fill");
+  const text = meter.querySelector(".battery-label");
   const safeLevel = typeof level === "number" ? Math.max(0, Math.min(100, level)) : 0;
 
-  powerText.classList.toggle("low", typeof level === "number" && safeLevel <= 30);
-  powerText.classList.toggle("ok", typeof level === "number" && safeLevel > 30);
-  powerText.classList.toggle("unknown", typeof level !== "number");
-  powerText.setAttribute("aria-valuenow", String(Math.round(safeLevel)));
+  meter.classList.toggle("low", typeof level === "number" && safeLevel <= 30);
+  meter.classList.toggle("ok", typeof level === "number" && safeLevel > 30);
+  meter.classList.toggle("unknown", typeof level !== "number");
+  meter.setAttribute("aria-valuenow", String(Math.round(safeLevel)));
 
   if (fill) fill.style.width = `${safeLevel}%`;
   if (text) text.textContent = label;
@@ -422,10 +483,11 @@ function syncPowerPolling(isConnected) {
 async function refreshPower() {
   if (!connected || powerRequestInFlight) return;
   powerRequestInFlight = true;
-  setBatteryMeter(null, t("powerReading"));
+  renderPowers(Object.fromEntries((lastStatus?.uris || [lastStatus?.uri]).filter(Boolean).map((uri) => [uri, { available: false, message: t("powerReading") }])));
   try {
     const payload = await requestJson("/api/power");
-    renderPower(payload.power);
+    renderPowers(payload.powers || getPowersFromStatus(payload.status || {}), (payload.status?.uris || [payload.status?.uri]).filter(Boolean));
+    Object.entries(payload.powers || {}).forEach(([uri, power]) => updateOptionPower(uri, power));
     updateOptionPower(payload.status?.uri, payload.power);
     if (payload.status) {
       lastStatus = payload.status;
@@ -438,7 +500,9 @@ async function refreshPower() {
 }
 
 function getConnectionLabel(status) {
-  if (status.connected) return t("connected");
+  if (status.connected) {
+    return status.connectedCount > 1 ? `${t("connected")} (${status.connectedCount})` : t("connected");
+  }
   if (status.status === "connecting") return t("connecting");
   if (status.status === "error") return t("error");
   return t("disconnected");
@@ -458,21 +522,23 @@ function localizeStatusMessage(status) {
 // Rewrites every option's label from its stable `base` text plus the
 // availability that applies right now, since the label set at scan time
 // goes stale the moment a connection changes (e.g. connect/disconnect).
-function refreshUriOptions(connectedUri) {
-  if (connectedUri && !Array.from(uriSelect.options).some((option) => option.value === connectedUri)) {
+function refreshUriOptions(connectedUris) {
+  const connectedSet = new Set(connectedUris);
+  connectedUris.forEach((connectedUri) => {
+    if (Array.from(uriSelect.options).some((option) => option.value === connectedUri)) return;
     const option = document.createElement("option");
     option.value = connectedUri;
     option.dataset.base = connectedUri;
     uriSelect.append(option);
-  }
+  });
 
   Array.from(uriSelect.options).forEach((option) => {
     if (option.value === "") return;
-    const availability = option.value === connectedUri ? "connected" : option.dataset.scanAvailability;
+    const availability = connectedSet.has(option.value) ? "connected" : option.dataset.scanAvailability;
     applyOptionLabel(option, availability);
   });
 
-  if (connectedUri) uriSelect.value = connectedUri;
+  if (lastStatus?.uri) uriSelect.value = lastStatus.uri;
 }
 
 function updateOptionPower(uri, power) {
@@ -480,7 +546,8 @@ function updateOptionPower(uri, power) {
   const option = Array.from(uriSelect.options).find((candidate) => candidate.value === uri);
   if (!option) return;
   option.dataset.power = JSON.stringify(power);
-  const availability = lastStatus?.connected && lastStatus.uri === uri ? "connected" : option.dataset.scanAvailability;
+  const connectedUris = new Set(lastStatus?.uris || (lastStatus?.uri ? [lastStatus.uri] : []));
+  const availability = connectedUris.has(uri) ? "connected" : option.dataset.scanAvailability;
   applyOptionLabel(option, availability);
 }
 

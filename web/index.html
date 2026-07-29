@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crazyflie Blocks</title>
-    <link rel="stylesheet" href="/styles.css?v=20260729i">
+    <link rel="stylesheet" href="/styles.css?v=20260729m">
   </head>
   <body>
     <main class="app-shell">
@@ -32,11 +32,12 @@
           <div class="sidebar-page active" id="connectPage" role="tabpanel" data-sidebar-page="connect">
             <button id="scanButton" class="primary-button" data-i18n="scan">Scan</button>
             <div class="power-summary">
-              <div id="powerText" class="battery-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                <span class="battery-shell"><span class="battery-fill"></span></span>
-                <strong class="battery-label" data-i18n="powerUnavailable">Unavailable</strong>
+              <div id="powerList" class="power-list">
+                <div class="battery-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <span class="battery-shell"><span class="battery-fill"></span></span>
+                  <strong class="battery-label" data-i18n="powerUnavailable">Unavailable</strong>
+                </div>
               </div>
-              <span id="statusBadge" class="status-badge disconnected">Disconnected</span>
               <button id="powerRefreshButton" class="tiny-button" type="button" data-i18n="refreshPower" disabled>Refresh</button>
             </div>
             <label class="field">
@@ -52,6 +53,7 @@
             <section class="log-panel">
               <h3 data-i18n="log">Log</h3>
               <div class="status-summary">
+                <span id="statusBadge" class="status-badge disconnected" hidden>Disconnected</span>
                 <p id="statusMessage" class="status-message" data-i18n="readyToScan">Ready to scan for Crazyflie.</p>
               </div>
             </section>
@@ -90,7 +92,7 @@
       </section>
     </main>
 
-    <script src="/blocks.js?v=20260729i"></script>
-    <script src="/app.js?v=20260729i"></script>
+    <script src="/blocks.js?v=20260729m"></script>
+    <script src="/app.js?v=20260729m"></script>
   </body>
 </html>

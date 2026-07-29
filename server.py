@@ -48,44 +48,110 @@ def close_link_quietly(scf):
     close_thread.join(CONNECT_TIMEOUT_SECONDS)
 
 
-class DroneState:
-    def __init__(self):
+class DroneConnection:
+    def __init__(self, uri, scf):
         self.lock = threading.Lock()
-        self.scf = None
-        self.uri = None
-        self.status = "disconnected"
-        self.message = "Ready to scan for Crazyflie."
+        self.uri = uri
+        self.scf = scf
+        self.status = "connected"
+        self.message = f"Connected to {uri}."
         self.active_flight = None
-        self.power = {"available": False, "message": "Not connected."}
+        self.power = {"available": False, "message": "Not read yet."}
 
     def as_dict(self):
         with self.lock:
             return {
-                "status": self.status,
                 "uri": self.uri,
+                "status": self.status,
                 "message": self.message,
                 "connected": self.scf is not None,
                 "power": self.power,
             }
 
-    def set_status(self, status, message, uri=None):
+    def set_status(self, status, message):
         with self.lock:
             self.status = status
             self.message = message
-            if uri is not None:
-                self.uri = uri
+
+
+class DroneState:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.connections = {}
+        self.status = "disconnected"
+        self.message = "Ready to scan for Crazyflie."
+
+    def connected_items(self):
+        with self.lock:
+            return list(self.connections.items())
+
+    def connected_uris(self):
+        with self.lock:
+            return list(self.connections.keys())
+
+    def primary_connection(self):
+        with self.lock:
+            return next(iter(self.connections.values()), None)
+
+    def as_dict(self):
+        with self.lock:
+            connections = list(self.connections.values())
+            drones = [connection.as_dict() for connection in connections]
+            primary = drones[0] if drones else None
+            status = self.status
+            message = self.message
+
+        if drones:
+            statuses = [drone["status"] for drone in drones]
+            if "running" in statuses:
+                status = "running"
+            elif "identifying" in statuses:
+                status = "identifying"
+            elif "connecting" in statuses:
+                status = "connecting"
+            elif "error" in statuses:
+                status = "error"
+            else:
+                status = "connected"
+            message = self.format_group_message(drones)
+
+        return {
+            "status": status,
+            "uri": primary["uri"] if primary else None,
+            "uris": [drone["uri"] for drone in drones],
+            "message": message,
+            "connected": bool(drones),
+            "connectedCount": len(drones),
+            "drones": drones,
+            "power": primary["power"] if primary else {"available": False, "message": "Not connected."},
+        }
+
+    def format_group_message(self, drones):
+        if len(drones) == 1:
+            return drones[0]["message"]
+        running = sum(1 for drone in drones if drone["status"] == "running")
+        if running:
+            return f"Running block script on {running}/{len(drones)} drone(s)."
+        return f"Connected to {len(drones)} drone(s): {', '.join(drone['uri'] for drone in drones)}."
+
+    def set_status(self, status, message, uri=None):
+        if uri is not None:
+            connection = self.get_connection(uri)
+            if connection is not None:
+                connection.set_status(status, message)
+        with self.lock:
+            self.status = status
+            self.message = message
+
+    def get_connection(self, uri):
+        with self.lock:
+            return self.connections.get(uri)
 
     def connect(self, uri):
-        with self.lock:
-            needs_disconnect = self.scf is not None
+        if uri in self.connected_uris():
+            self.disconnect(uri)
 
-        if needs_disconnect:
-            self.disconnect()
-
-        with self.lock:
-            self.status = "connecting"
-            self.message = f"Connecting to {uri}..."
-            self.uri = uri
+        self.set_status("connecting", f"Connecting to {uri}...")
 
         cf = Crazyflie(rw_cache=str(CACHE_DIR))
         scf = SyncCrazyflie(uri, cf=cf)
@@ -117,8 +183,10 @@ class DroneState:
             close_link_quietly(scf)
             raise error_box[0]
 
+        connection = DroneConnection(uri, scf)
+        connection.set_status("identifying", f"Connected to {uri}. Identifying...")
         with self.lock:
-            self.scf = scf
+            self.connections[uri] = connection
             self.status = "identifying"
             self.message = f"Connected to {uri}. Identifying..."
 
@@ -128,68 +196,111 @@ class DroneState:
         except Exception:
             close_link_quietly(scf)
             with self.lock:
-                self.scf = None
+                self.connections.pop(uri, None)
                 self.status = "error"
-                self.message = "Connected, but identify failed."
+                self.message = f"Connected to {uri}, but identify failed."
             raise
 
-        with self.lock:
-            self.status = "connected"
-            self.message = f"Connected to {uri}. Identify complete."
+        connection.set_status("connected", f"Connected to {uri}. Identify complete.")
+        self.set_status("connected", f"Connected to {uri}. Identify complete.", uri)
 
         return {"ok": True, "message": self.message, "status": self.as_dict()}
 
-    def disconnect(self):
+    def disconnect(self, uri=None):
         with self.lock:
-            scf = self.scf
-            uri = self.uri
-            self.scf = None
-            self.uri = None
-            self.status = "disconnected"
-            self.message = "Disconnected."
-            self.power = {"available": False, "message": "Not connected."}
+            if uri is None:
+                removed = list(self.connections.items())
+                self.connections.clear()
+            else:
+                connection = self.connections.pop(uri, None)
+                removed = [(uri, connection)] if connection is not None else []
 
-        if scf is not None:
-            close_link_quietly(scf)
+            if not self.connections:
+                self.status = "disconnected"
+                self.message = "Disconnected."
 
-        return {"ok": True, "message": f"Disconnected from {uri}." if uri else "Disconnected.", "status": self.as_dict()}
+        for _uri, connection in removed:
+            if connection is not None:
+                close_link_quietly(connection.scf)
+
+        if uri is not None and not removed:
+            message = f"{uri} was not connected."
+        elif uri is not None:
+            message = f"Disconnected from {uri}."
+        else:
+            message = "Disconnected."
+        return {"ok": True, "message": message, "status": self.as_dict()}
 
     def stop(self):
-        with self.lock:
-            scf = self.scf
-            flight = self.active_flight
-            if scf is None:
-                self.status = "disconnected"
-                self.message = "No Crazyflie is connected."
-                return {"ok": True, "message": self.message, "status": self.as_dict()}
+        items = self.connected_items()
+        if not items:
+            self.set_status("disconnected", "No Crazyflie is connected.")
+            return {"ok": True, "message": self.message, "status": self.as_dict()}
 
         # Tell the running script to bail out of its loops, then land gracefully.
         # flight.land() lets MotionCommander manage its own background setpoint
         # thread during the descent, rather than overriding it with a raw stop.
         cancellation.request_stop()
-        if flight is not None:
-            flight.land()
-        else:
-            stop_drone(scf)
+        for _uri, connection in items:
+            with connection.lock:
+                flight = connection.active_flight
+                scf = connection.scf
+            if flight is not None:
+                flight.land()
+            elif scf is not None:
+                stop_drone(scf)
+            connection.set_status("connected", "Stopped.")
         self.set_status("connected", "Stopped.")
         return {"ok": True, "message": "Stopped.", "status": self.as_dict()}
 
     def run_script(self, commands):
-        with self.lock:
-            scf = self.scf
-            if scf is None:
-                return {
-                    "ok": False,
-                    "error": "Connect the Crazyflie before running blocks.",
-                    "status": self.as_dict(),
-                }
-            self.status = "running"
-            self.message = "Running block script..."
+        items = self.connected_items()
+        if not items:
+            return {
+                "ok": False,
+                "error": "Connect the Crazyflie before running blocks.",
+                "status": self.as_dict(),
+            }
 
         cancellation.reset()
+        self.set_status("running", f"Running block script on {len(items)} drone(s)...")
+
+        results = {}
+        errors = {}
+        threads = []
+
+        def _run_one(uri, connection):
+            try:
+                results[uri] = self.run_script_for_connection(connection, commands)
+            except Exception as exc:
+                errors[uri] = exc
+
+        for uri, connection in items:
+            thread = threading.Thread(target=_run_one, args=(uri, connection), daemon=True)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        if errors:
+            message = "; ".join(f"{uri}: {exc}" for uri, exc in errors.items())
+            self.set_status("error", message)
+            return {"ok": False, "error": message, "results": results, "status": self.as_dict()}
+
+        self.set_status("connected", f"Finished running blocks on {len(results)} drone(s).")
+        return {"ok": True, "message": self.message, "results": results, "status": self.as_dict()}
+
+    def run_script_for_connection(self, connection, commands):
+        with connection.lock:
+            scf = connection.scf
+        if scf is None:
+            raise RuntimeError(f"{connection.uri} is not connected.")
+
         flight = ScriptFlightSession(scf)
-        with self.lock:
-            self.active_flight = flight
+        with connection.lock:
+            connection.active_flight = flight
+        connection.set_status("running", "Running block script...")
         try:
             for entry in commands:
                 if cancellation.stopping():
@@ -198,7 +309,7 @@ class DroneState:
                 function = BLOCK_FUNCTIONS.get(command)
                 if function is None:
                     raise ValueError(f"Block is not implemented yet: {command}")
-                self.set_status("running", f"Running {format_command_for_status(command, args)}...")
+                connection.set_status("running", f"Running {format_command_for_status(command, args)}...")
                 if command == "takeoff":
                     flight.takeoff(args)
                 elif command in MOTION_COMMANDS:
@@ -210,35 +321,58 @@ class DroneState:
 
             if cancellation.stopping():
                 flight.land()
-                self.set_status("connected", "Stopped.")
-                return {"ok": True, "message": "Stopped.", "status": self.as_dict()}
+                connection.set_status("connected", "Stopped.")
+                return {"ok": True, "message": "Stopped."}
 
             flight.land()
             stop_drone(scf)
-            self.set_status("connected", "Finished running blocks.")
-            return {"ok": True, "message": "Finished running blocks.", "status": self.as_dict()}
+            connection.set_status("connected", "Finished running blocks.")
+            return {"ok": True, "message": "Finished running blocks."}
         except Exception:
             flight.land()
             stop_drone(scf)
+            connection.set_status("error", traceback.format_exc())
             raise
         finally:
-            with self.lock:
-                self.active_flight = None
+            with connection.lock:
+                connection.active_flight = None
 
-    def read_power(self):
-        with self.lock:
-            scf = self.scf
+    def read_power(self, uri=None):
+        if uri is not None:
+            connection = self.get_connection(uri)
+            if connection is None:
+                return {"available": False, "message": "Not connected."}
+            return self.read_power_for_connection(connection)
+
+        items = self.connected_items()
+        if not items:
+            return {"available": False, "message": "Not connected."}
+
+        powers = {}
+        for uri, connection in items:
+            powers[uri] = self.read_power_for_connection(connection)
+        return powers[items[0][0]]
+
+    def read_all_power(self):
+        powers = {}
+        for uri, connection in self.connected_items():
+            powers[uri] = self.read_power_for_connection(connection)
+        return powers
+
+    def read_power_for_connection(self, connection):
+        with connection.lock:
+            scf = connection.scf
             if scf is None:
-                self.power = {"available": False, "message": "Not connected."}
-                return self.power
+                connection.power = {"available": False, "message": "Not connected."}
+                return connection.power
 
         try:
             power = read_power_log(scf)
         except Exception as exc:
             power = {"available": False, "message": str(exc)}
 
-        with self.lock:
-            self.power = power
+        with connection.lock:
+            connection.power = power
         return power
 
 
@@ -300,17 +434,20 @@ def probe_uri(uri):
 def scan_with_availability():
     """Discover reachable drones, then label each available / in_use."""
     drones = scan_interfaces()
-
-    with STATE.lock:
-        connected_uri = STATE.uri if STATE.scf is not None else None
-        connected_power = STATE.power
+    connected = {
+        uri: connection.as_dict()
+        for uri, connection in STATE.connected_items()
+    }
 
     for drone in drones:
-        if connected_uri is not None:
-            # Our own radio is busy holding a link, so we cannot probe.
-            drone["availability"] = "connected" if drone["uri"] == connected_uri else "unknown"
-            if drone["uri"] == connected_uri:
-                drone["power"] = connected_power
+        if connected:
+            # Connected radios are busy holding links, so avoid probe attempts
+            # while any drone is already linked.
+            if drone["uri"] in connected:
+                drone["availability"] = "connected"
+                drone["power"] = connected[drone["uri"]].get("power")
+            else:
+                drone["availability"] = "unknown"
         else:
             probe = probe_uri(drone["uri"])
             drone["availability"] = probe["availability"]
@@ -515,8 +652,9 @@ class Handler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/power":
             try:
-                power = STATE.read_power()
-                self.send_json({"ok": True, "power": power, "status": STATE.as_dict()})
+                powers = STATE.read_all_power()
+                primary_power = next(iter(powers.values()), {"available": False, "message": "Not connected."})
+                self.send_json({"ok": True, "power": primary_power, "powers": powers, "status": STATE.as_dict()})
             except Exception as exc:
                 self.send_json(
                     {
@@ -560,15 +698,21 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/connect":
             payload = self.read_json()
-            uri = payload.get("uri")
-            if not uri:
+            uris = payload.get("uris")
+            if uris is None:
+                uri = payload.get("uri")
+                uris = [uri] if uri else []
+            if not isinstance(uris, list) or not all(isinstance(uri, str) and uri for uri in uris):
                 self.send_json({"ok": False, "error": "Missing uri."}, HTTPStatus.BAD_REQUEST)
                 return
             try:
                 init_drivers_once()
-                self.send_json(STATE.connect(uri))
+                result = None
+                for uri in uris:
+                    result = STATE.connect(uri)
+                self.send_json(result or {"ok": True, "status": STATE.as_dict()})
             except Exception as exc:
-                STATE.set_status("error", str(exc), uri)
+                STATE.set_status("error", str(exc))
                 self.send_json(
                     {
                         "ok": False,
@@ -581,8 +725,10 @@ class Handler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/disconnect":
+            payload = self.read_json()
+            uri = payload.get("uri")
             try:
-                self.send_json(STATE.disconnect())
+                self.send_json(STATE.disconnect(uri))
             except Exception as exc:
                 self.send_json(
                     {"ok": False, "error": str(exc), "status": STATE.as_dict()},
