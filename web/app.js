@@ -7,7 +7,9 @@ const statusMessage = document.querySelector("#statusMessage");
 const connectionText = document.querySelector("#connectionText");
 const powerText = document.querySelector("#powerText");
 const powerRefreshButton = document.querySelector("#powerRefreshButton");
-const languageSelect = document.querySelector("#languageSelect");
+const languageButtons = Array.from(document.querySelectorAll(".language-button"));
+const sidebarTabs = Array.from(document.querySelectorAll(".sidebar-tab"));
+const sidebarPages = Array.from(document.querySelectorAll(".sidebar-page"));
 const blockList = document.querySelector("#blockList");
 const scriptStack = document.querySelector("#scriptStack");
 const scriptPlaceholder = document.querySelector("#scriptPlaceholder");
@@ -132,12 +134,13 @@ const TRANSLATIONS = {
     connectBeforeStop: "Connect the Crazyflie before stopping.",
     stopping: "Stopping...",
     runningScript: "Running: {commands}",
+    log: "Log",
     powerStatus: "Power",
     powerUnavailable: "Unavailable",
     powerReading: "Reading...",
-    powerVoltageOnly: "{voltage} V",
-    powerLevel: "{level}% ({voltage} V)",
-    powerLevelEstimated: "{level}% est. ({voltage} V)",
+    powerVoltageOnly: "Unavailable",
+    powerLevel: "{level}%",
+    powerLevelEstimated: "{level}% est.",
     refreshPower: "Refresh",
   },
   fr: {
@@ -175,12 +178,13 @@ const TRANSLATIONS = {
     connectBeforeStop: "Connectez le Crazyflie avant d'arrêter.",
     stopping: "Arrêt...",
     runningScript: "Exécution : {commands}",
+    log: "Journal",
     powerStatus: "Alimentation",
     powerUnavailable: "Indisponible",
     powerReading: "Lecture...",
-    powerVoltageOnly: "{voltage} V",
-    powerLevel: "{level} % ({voltage} V)",
-    powerLevelEstimated: "{level} % est. ({voltage} V)",
+    powerVoltageOnly: "Indisponible",
+    powerLevel: "{level} %",
+    powerLevelEstimated: "{level} % est.",
     refreshPower: "Actualiser",
   },
 };
@@ -204,6 +208,7 @@ let lastStatus = null;
 let lastPower = null;
 let powerPollId = null;
 let powerRequestInFlight = false;
+let activeSidebarPage = "connect";
 
 function getInitialLanguage() {
   const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
@@ -235,7 +240,11 @@ function getDefinition(command) {
 
 function applyLanguage() {
   document.documentElement.lang = currentLanguage;
-  languageSelect.value = currentLanguage;
+  languageButtons.forEach((button) => {
+    const isActive = button.dataset.language === currentLanguage;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
 
   document.querySelectorAll("[data-i18n]").forEach((element) => {
     element.textContent = t(element.dataset.i18n);
@@ -287,6 +296,19 @@ function updateBlockLanguage() {
   });
 }
 
+function switchSidebarPage(pageName) {
+  activeSidebarPage = pageName;
+  sidebarTabs.forEach((tab) => {
+    const isActive = tab.dataset.sidebarTab === pageName;
+    tab.classList.toggle("active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  });
+  sidebarPages.forEach((page) => {
+    page.hidden = page.dataset.sidebarPage !== pageName;
+    page.classList.toggle("active", page.dataset.sidebarPage === pageName);
+  });
+}
+
 async function requestJson(path, options = {}) {
   const response = await fetch(path, {
     headers: { "Content-Type": "application/json" },
@@ -325,6 +347,7 @@ function renderStatus(status) {
   refreshUriOptions(status.connected ? status.uri : null);
   if (status.power) {
     renderPower(status.power);
+    updateOptionPower(status.uri, status.power);
   } else if (!status.connected) {
     renderPower(null);
   }
@@ -334,24 +357,34 @@ function renderStatus(status) {
 function renderPower(power) {
   lastPower = power;
   if (!power || power.available === false) {
-    powerText.textContent = t("powerUnavailable");
+    setBatteryMeter(null, t("powerUnavailable"));
     powerText.title = power?.message || "";
     return;
   }
 
-  const voltage = typeof power.voltage === "number" ? power.voltage.toFixed(2) : null;
   const level = typeof power.batteryLevel === "number" ? Math.round(power.batteryLevel) : null;
+  const meterLevel = level !== null ? level : null;
 
-  if (level !== null && voltage !== null) {
-    powerText.textContent = t(power.estimated ? "powerLevelEstimated" : "powerLevel", { level, voltage });
-  } else if (voltage !== null) {
-    powerText.textContent = t("powerVoltageOnly", { voltage });
-  } else if (level !== null) {
-    powerText.textContent = `${level}%`;
+  if (level !== null) {
+    setBatteryMeter(meterLevel, t(power.estimated ? "powerLevelEstimated" : "powerLevel", { level }));
   } else {
-    powerText.textContent = t("powerUnavailable");
+    setBatteryMeter(null, t("powerUnavailable"));
   }
   powerText.title = power.message || "";
+}
+
+function setBatteryMeter(level, label) {
+  const fill = powerText.querySelector(".battery-fill");
+  const text = powerText.querySelector(".battery-label");
+  const safeLevel = typeof level === "number" ? Math.max(0, Math.min(100, level)) : 0;
+
+  powerText.classList.toggle("low", typeof level === "number" && safeLevel <= 30);
+  powerText.classList.toggle("ok", typeof level === "number" && safeLevel > 30);
+  powerText.classList.toggle("unknown", typeof level !== "number");
+  powerText.setAttribute("aria-valuenow", String(Math.round(safeLevel)));
+
+  if (fill) fill.style.width = `${safeLevel}%`;
+  if (text) text.textContent = label;
 }
 
 function syncPowerPolling(isConnected) {
@@ -372,10 +405,11 @@ function syncPowerPolling(isConnected) {
 async function refreshPower() {
   if (!connected || powerRequestInFlight) return;
   powerRequestInFlight = true;
-  powerText.textContent = t("powerReading");
+  setBatteryMeter(null, t("powerReading"));
   try {
     const payload = await requestJson("/api/power");
     renderPower(payload.power);
+    updateOptionPower(payload.status?.uri, payload.power);
     if (payload.status) {
       lastStatus = payload.status;
     }
@@ -424,10 +458,30 @@ function refreshUriOptions(connectedUri) {
   if (connectedUri) uriSelect.value = connectedUri;
 }
 
+function updateOptionPower(uri, power) {
+  if (!uri || !power) return;
+  const option = Array.from(uriSelect.options).find((candidate) => candidate.value === uri);
+  if (!option) return;
+  option.dataset.power = JSON.stringify(power);
+  const availability = lastStatus?.connected && lastStatus.uri === uri ? "connected" : option.dataset.scanAvailability;
+  applyOptionLabel(option, availability);
+}
+
 function applyOptionLabel(option, availability) {
   const base = option.dataset.base || option.value;
   const label = availabilityLabel(availability);
-  option.textContent = label ? `${base} — ${label}` : base;
+  const power = option.dataset.power ? formatPowerForOption(JSON.parse(option.dataset.power)) : "";
+  option.textContent = [base, label, power].filter(Boolean).join(" — ");
+}
+
+function formatPowerForOption(power) {
+  if (!power || power.available === false) return "";
+  const level = typeof power.batteryLevel === "number" ? Math.round(power.batteryLevel) : null;
+
+  if (level !== null) {
+    return t(power.estimated ? "powerLevelEstimated" : "powerLevel", { level });
+  }
+  return "";
 }
 
 function renderDrones(drones) {
@@ -448,6 +502,9 @@ function renderDrones(drones) {
     option.dataset.base = drone.info ? `${drone.uri} (${drone.info})` : drone.uri;
     if (drone.availability) {
       option.dataset.scanAvailability = drone.availability;
+    }
+    if (drone.power) {
+      option.dataset.power = JSON.stringify(drone.power);
     }
     applyOptionLabel(option, drone.availability);
     // Auto-select the first available drone so the obvious choice is preselected.
@@ -913,10 +970,19 @@ stopButton.addEventListener("click", async () => {
 
 powerRefreshButton.addEventListener("click", refreshPower);
 
-languageSelect.addEventListener("change", () => {
-  currentLanguage = SUPPORTED_LANGUAGES.includes(languageSelect.value) ? languageSelect.value : "en";
-  localStorage.setItem(LANGUAGE_KEY, currentLanguage);
-  applyLanguage();
+languageButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const language = button.dataset.language;
+    currentLanguage = SUPPORTED_LANGUAGES.includes(language) ? language : "en";
+    localStorage.setItem(LANGUAGE_KEY, currentLanguage);
+    applyLanguage();
+  });
+});
+
+sidebarTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    switchSidebarPage(tab.dataset.sidebarTab || "connect");
+  });
 });
 
 // Block heights depend on label wrapping, and a narrower canvas can push the
@@ -929,6 +995,7 @@ window.addEventListener("resize", () => {
 });
 
 renderBlockToolbox();
+switchSidebarPage(activeSidebarPage);
 applyLanguage();
 
 requestJson("/api/status")

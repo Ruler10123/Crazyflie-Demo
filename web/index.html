@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crazyflie Blocks</title>
-    <link rel="stylesheet" href="/styles.css?v=20260728b">
+    <link rel="stylesheet" href="/styles.css?v=20260729f">
   </head>
   <body>
     <main class="app-shell">
@@ -17,51 +17,57 @@
           </div>
         </div>
 
-        <label class="field language-field">
-          <span data-i18n="languageLabel">Language</span>
-          <select id="languageSelect">
-            <option value="en">English</option>
-            <option value="fr">Français</option>
-          </select>
-        </label>
+        <section class="sidebar-pages">
+          <div class="sidebar-tabs" role="tablist" aria-label="Sidebar pages">
+            <button class="sidebar-tab active" type="button" role="tab" aria-selected="true" aria-controls="connectPage" data-sidebar-tab="connect">
+              <span>1</span>
+              <strong data-i18n="connectDrone">Connect Drone</strong>
+            </button>
+            <button class="sidebar-tab" type="button" role="tab" aria-selected="false" aria-controls="blocksPage" data-sidebar-tab="blocks">
+              <span>2</span>
+              <strong data-i18n="blocks">Blocks</strong>
+            </button>
+          </div>
 
-        <section class="panel">
-          <div class="panel-title">
-            <span>1</span>
-            <h2 data-i18n="connectDrone">Connect Drone</h2>
+          <div class="sidebar-page active" id="connectPage" role="tabpanel" data-sidebar-page="connect">
+            <button id="scanButton" class="primary-button" data-i18n="scan">Scan</button>
+            <div class="power-summary">
+              <div id="powerText" class="battery-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <span class="battery-shell"><span class="battery-fill"></span></span>
+                <strong class="battery-label" data-i18n="powerUnavailable">Unavailable</strong>
+              </div>
+              <span id="statusBadge" class="status-badge disconnected">Disconnected</span>
+              <button id="powerRefreshButton" class="tiny-button" type="button" data-i18n="refreshPower" disabled>Refresh</button>
+            </div>
+            <label class="field">
+              <span data-i18n="droneUri">Drone URI</span>
+              <select id="uriSelect">
+                <option value="" data-i18n="scanFirst">Scan first...</option>
+              </select>
+            </label>
+            <div class="button-row">
+              <button id="connectButton" class="primary-button" data-i18n="connect">Connect</button>
+              <button id="disconnectButton" class="ghost-button" data-i18n="disconnect">Disconnect</button>
+            </div>
+            <section class="log-panel">
+              <h3 data-i18n="log">Log</h3>
+              <div class="status-summary">
+                <p id="statusMessage" class="status-message" data-i18n="readyToScan">Ready to scan for Crazyflie.</p>
+              </div>
+            </section>
           </div>
-          <button id="scanButton" class="primary-button" data-i18n="scan">Scan</button>
-          <div class="status-summary">
-            <span id="statusBadge" class="status-badge disconnected">Disconnected</span>
-            <p id="statusMessage" class="status-message" data-i18n="readyToScan">Ready to scan for Crazyflie.</p>
-          </div>
-          <div class="power-summary">
-            <span class="power-label" data-i18n="powerStatus">Power</span>
-            <strong id="powerText" data-i18n="powerUnavailable">Unavailable</strong>
-            <button id="powerRefreshButton" class="tiny-button" type="button" data-i18n="refreshPower" disabled>Refresh</button>
-          </div>
-          <label class="field">
-            <span data-i18n="droneUri">Drone URI</span>
-            <select id="uriSelect">
-              <option value="" data-i18n="scanFirst">Scan first...</option>
-            </select>
-          </label>
-          <div class="button-row">
-            <button id="connectButton" class="primary-button" data-i18n="connect">Connect</button>
-            <button id="disconnectButton" class="ghost-button" data-i18n="disconnect">Disconnect</button>
-          </div>
-        </section>
 
-        <section class="panel">
-          <div class="panel-title">
-            <span>2</span>
-            <h2 data-i18n="blocks">Blocks</h2>
+          <div class="sidebar-page" id="blocksPage" role="tabpanel" data-sidebar-page="blocks" hidden>
+            <div id="blockList" class="block-list"></div>
           </div>
-          <div id="blockList" class="block-list"></div>
         </section>
       </aside>
 
       <section id="workspaceArea" class="workspace">
+        <div class="language-toggle" aria-label="Language">
+          <button class="language-button" type="button" data-language="en">EN</button>
+          <button class="language-button" type="button" data-language="fr">FR</button>
+        </div>
         <div class="stage-controls" aria-label="Script controls">
           <button id="startButton" class="icon-button start-control" type="button" title="Start" data-i18n-title="start">
             <span class="flag-icon" aria-hidden="true"></span>
@@ -84,7 +90,7 @@
       </section>
     </main>
 
-    <script src="/blocks.js?v=20260728b"></script>
-    <script src="/app.js?v=20260728b"></script>
+    <script src="/blocks.js?v=20260729f"></script>
+    <script src="/app.js?v=20260729f"></script>
   </body>
 </html>

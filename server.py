@@ -264,12 +264,12 @@ def scan_interfaces():
 
 
 def probe_uri(uri):
-    """Test whether a drone is free by opening (then immediately closing) a link.
+    """Test whether a drone is free and read power if possible.
 
     A drone already linked to another radio still ACKs scan pings, so the only
     reliable availability test is a full CRTP handshake: it completes on a free
     drone and fails/times out on a busy one. Does not call identify_drone, so no
-    motors are spun -- the open+close is non-disruptive to a free drone."""
+    motors are spun -- the open+read+close is non-disruptive to a free drone."""
     cf = Crazyflie(rw_cache=str(CACHE_DIR))
     scf = SyncCrazyflie(uri, cf=cf)
 
@@ -287,10 +287,14 @@ def probe_uri(uri):
 
     if open_thread.is_alive() or error_box:
         close_link_quietly(scf)
-        return "in_use"
+        return {"availability": "in_use", "power": None}
 
+    try:
+        power = read_power_log(scf)
+    except Exception as exc:
+        power = {"available": False, "message": str(exc)}
     close_link_quietly(scf)
-    return "available"
+    return {"availability": "available", "power": power}
 
 
 def scan_with_availability():
@@ -299,13 +303,19 @@ def scan_with_availability():
 
     with STATE.lock:
         connected_uri = STATE.uri if STATE.scf is not None else None
+        connected_power = STATE.power
 
     for drone in drones:
         if connected_uri is not None:
             # Our own radio is busy holding a link, so we cannot probe.
             drone["availability"] = "connected" if drone["uri"] == connected_uri else "unknown"
+            if drone["uri"] == connected_uri:
+                drone["power"] = connected_power
         else:
-            drone["availability"] = probe_uri(drone["uri"])
+            probe = probe_uri(drone["uri"])
+            drone["availability"] = probe["availability"]
+            if probe["power"] is not None:
+                drone["power"] = probe["power"]
 
     return drones
 
