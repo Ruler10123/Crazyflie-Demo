@@ -85,6 +85,14 @@ const DEFAULT_BLOCK_DEFINITIONS = [
     description: { en: "Pause the script for one second.", fr: "Mettre le script en pause pendant une seconde." },
     inputs: [{ name: "duration_seconds", label: { en: "duration sec", fr: "durée s" }, type: "number", value: 1, min: 0.1, max: 10, step: 0.1 }],
   },
+  {
+    command: "repeat",
+    label: { en: "repeat", fr: "répéter" },
+    style: "control",
+    description: { en: "Repeat the blocks placed inside this C block.", fr: "Répéter les blocs placés dans ce bloc C." },
+    container: true,
+    inputs: [{ name: "times", label: { en: "times", fr: "fois" }, type: "number", value: 2, min: 1, max: 20, step: 1 }],
+  },
   { command: "take_off_simple", label: { en: "take off simple", fr: "décollage simple" }, style: "motion", description: { en: "Take off, hover for 3 seconds, then land.", fr: "Décoller, rester en vol stationnaire pendant 3 secondes, puis atterrir." } },
   {
     command: "move_box_limit",
@@ -113,6 +121,7 @@ const TRANSLATIONS = {
     stop: "Stop",
     clear: "Clear",
     dragBlocks: "Drag blocks from the left toolbox.",
+    dropBlocksHere: "Drop blocks here",
     disconnected: "Disconnected",
     connected: "Connected",
     connecting: "Connecting",
@@ -130,6 +139,7 @@ const TRANSLATIONS = {
     addStartAndCommands: "Add a start block and some commands before running.",
     placeStartBlock: "Place a start block at the top of the script before running.",
     addBlocksBelowStart: "Add blocks below the start block before running.",
+    repeatNeedsBlock: "Place at least one block inside repeat before running.",
     connectBeforeRun: "Connect the Crazyflie before running blocks.",
     connectBeforeStop: "Connect the Crazyflie before stopping.",
     stopping: "Stopping...",
@@ -157,6 +167,7 @@ const TRANSLATIONS = {
     stop: "Arrêter",
     clear: "Effacer",
     dragBlocks: "Glissez les blocs depuis la boîte à outils de gauche.",
+    dropBlocksHere: "Déposez les blocs ici",
     disconnected: "Déconnecté",
     connected: "Connecté",
     connecting: "Connexion",
@@ -174,6 +185,7 @@ const TRANSLATIONS = {
     addStartAndCommands: "Ajoutez un bloc de départ et des commandes avant l'exécution.",
     placeStartBlock: "Placez un bloc de départ en haut du script avant l'exécution.",
     addBlocksBelowStart: "Ajoutez des blocs sous le bloc de départ avant l'exécution.",
+    repeatNeedsBlock: "Placez au moins un bloc dans répéter avant l'exécution.",
     connectBeforeRun: "Connectez le Crazyflie avant d'exécuter les blocs.",
     connectBeforeStop: "Connectez le Crazyflie avant d'arrêter.",
     stopping: "Arrêt...",
@@ -201,6 +213,8 @@ let connected = false;
 let dragGroup = [];
 let dragLayer = null;
 let dropIndex = null;
+let dropContainer = null;
+let dropChildIndex = null;
 let activeDragPointerId = null;
 let dragOffset = { x: 0, y: 0 };
 let blockCounter = 0;
@@ -292,6 +306,9 @@ function updateBlockLanguage() {
       if (unit && inputDefinition) {
         unit.textContent = localizedText(inputDefinition.label);
       }
+    });
+    block.querySelectorAll(".c-block-placeholder").forEach((placeholder) => {
+      placeholder.textContent = t("dropBlocksHere");
     });
   });
 }
@@ -553,15 +570,14 @@ function renderBlockToolbox() {
 
 function renderBlockContent(block, definition) {
   block.textContent = "";
+  block.classList.toggle("c-block", Boolean(definition.container));
 
   const label = document.createElement("span");
   label.className = "block-label";
   label.textContent = localizedText(definition.label);
   block.append(label);
 
-  if (!Array.isArray(definition.inputs)) return;
-
-  definition.inputs.forEach((inputDefinition) => {
+  (definition.inputs || []).forEach((inputDefinition) => {
     const wrapper = document.createElement("label");
     wrapper.className = "block-input-wrap";
 
@@ -583,6 +599,18 @@ function renderBlockContent(block, definition) {
     wrapper.append(input, unit);
     block.append(wrapper);
   });
+
+  if (definition.container) {
+    const body = document.createElement("div");
+    body.className = "c-block-body";
+
+    const placeholder = document.createElement("div");
+    placeholder.className = "c-block-placeholder";
+    placeholder.textContent = t("dropBlocksHere");
+    body.append(placeholder);
+
+    block.append(body);
+  }
 }
 
 async function runScan() {
@@ -658,8 +686,19 @@ function makeScriptBlock(sourceBlock) {
 
 // Removes one block only; the rest of the stack closes the gap.
 function removeScriptBlock(block) {
+  const parentBody = block.parentElement?.closest(".c-block-body");
+  if (parentBody) {
+    block.remove();
+    updateCBlockBody(parentBody);
+    layoutStack();
+    updatePlaceholder();
+    return;
+  }
+
   const index = scriptOrder.indexOf(block);
-  if (index !== -1) scriptOrder.splice(index, 1);
+  if (index !== -1) {
+    scriptOrder.splice(index, 1);
+  }
   block.remove();
   layoutStack();
   updatePlaceholder();
@@ -700,6 +739,19 @@ function groupHeight(list) {
   return list.reduce((total, block) => total + block.offsetHeight + BLOCK_GAP, 0) - BLOCK_GAP;
 }
 
+function getBodyBlocks(container) {
+  return Array.from(container.children).filter((child) => child.classList.contains("script-block"));
+}
+
+function updateCBlockBody(body) {
+  const placeholder = body.querySelector(":scope > .c-block-placeholder");
+  if (placeholder) placeholder.hidden = getBodyBlocks(body).length > 0;
+}
+
+function updateAllCBlockBodies() {
+  document.querySelectorAll(".c-block-body").forEach(updateCBlockBody);
+}
+
 // The only viewport-to-stack conversions: keep scroll offsets out of callers.
 function stackY(clientY) {
   return clientY - scriptStack.getBoundingClientRect().top - scriptStack.clientTop + scriptStack.scrollTop;
@@ -738,7 +790,8 @@ function startScriptBlockDrag(event) {
   if (event.target.closest("input")) return;
 
   const block = event.currentTarget;
-  const index = scriptOrder.indexOf(block);
+  const parentBody = block.parentElement?.closest(".c-block-body");
+  const index = parentBody ? getBodyBlocks(parentBody).indexOf(block) : scriptOrder.indexOf(block);
   if (index === -1) return;
 
   const blockRect = block.getBoundingClientRect();
@@ -747,8 +800,12 @@ function startScriptBlockDrag(event) {
     y: event.clientY - blockRect.top,
   };
 
-  // Grabbing a block takes everything below it, so the stack above closes up.
-  const group = scriptOrder.splice(index);
+  // Grabbing a block takes everything below it in the same container.
+  const group = parentBody ? getBodyBlocks(parentBody).slice(index) : scriptOrder.splice(index);
+  if (parentBody) {
+    group.forEach((item) => item.remove());
+    updateCBlockBody(parentBody);
+  }
   layoutStack();
   beginDrag(group, event, offset);
 }
@@ -799,16 +856,66 @@ function moveActiveDragBlock(event) {
 
   if (!isPointInStage(event)) {
     dropIndex = null;
+    dropContainer = null;
+    dropChildIndex = null;
     layoutStack();
     hideSnapPreview();
+    clearCBlockDropTargets();
     scriptStack.classList.remove("drag-over");
     return;
   }
 
+  const body = getCBlockBodyAtPoint(event);
+  if (body) {
+    dropContainer = body;
+    dropChildIndex = getBodyInsertionIndex(body, event.clientY);
+    dropIndex = null;
+    layoutStack();
+    hideSnapPreview();
+    showCBlockDropTarget(body);
+    scriptStack.classList.remove("drag-over");
+    return;
+  }
+
+  dropContainer = scriptStack;
+  dropChildIndex = null;
   dropIndex = getInsertionIndex(event.clientY);
   const height = groupHeight(dragGroup);
   showSnapPreview(layoutStack(dropIndex, height), height);
+  clearCBlockDropTargets();
   scriptStack.classList.add("drag-over");
+}
+
+function getCBlockBodyAtPoint(event) {
+  const element = document.elementFromPoint(event.clientX, event.clientY);
+  const body = element?.closest?.(".c-block-body");
+  if (isValidDropBody(body)) return body;
+
+  return Array.from(scriptStack.querySelectorAll(".c-block-body")).find((candidate) => {
+    if (!isValidDropBody(candidate)) return false;
+    const rect = candidate.getBoundingClientRect();
+    return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }) || null;
+}
+
+function isValidDropBody(body) {
+  if (!body || dragGroup.some((block) => block.contains(body))) return false;
+  return scriptStack.contains(body);
+}
+
+function getBodyInsertionIndex(body, clientY) {
+  const blocks = getBodyBlocks(body);
+  const index = blocks.findIndex((block) => clientY < block.getBoundingClientRect().top + block.offsetHeight / 2);
+  return index === -1 ? blocks.length : index;
+}
+
+function showCBlockDropTarget(body) {
+  clearCBlockDropTargets();
+  body.classList.add("drop-target");
+}
+
+function clearCBlockDropTargets() {
+  document.querySelectorAll(".c-block-body.drop-target").forEach((body) => body.classList.remove("drop-target"));
 }
 
 function showSnapPreview(top, height) {
@@ -837,8 +944,12 @@ function endActiveDragBlock(event) {
   document.removeEventListener("pointerup", endActiveDragBlock);
   document.removeEventListener("pointercancel", endActiveDragBlock);
   hideSnapPreview();
+  clearCBlockDropTargets();
 
-  if (dropIndex === null) {
+  if (dropContainer?.classList?.contains("c-block-body")) {
+    insertGroupIntoBody(dropContainer, dropChildIndex, dragGroup);
+    layoutStack();
+  } else if (dropIndex === null) {
     // Dropped outside the canvas: discard the whole dragged group.
     dragGroup.forEach((block) => block.remove());
   } else {
@@ -858,9 +969,25 @@ function endActiveDragBlock(event) {
   dragLayer = null;
   dragGroup = [];
   dropIndex = null;
+  dropContainer = null;
+  dropChildIndex = null;
   activeDragPointerId = null;
   scriptStack.classList.remove("drag-over");
+  updateAllCBlockBodies();
   updatePlaceholder();
+}
+
+function insertGroupIntoBody(body, index, group) {
+  const blocksInBody = getBodyBlocks(body);
+  const before = blocksInBody[index] || null;
+  group.forEach((block) => {
+    block.classList.remove("floating-block");
+    block.style.left = "";
+    block.style.top = "";
+    body.insertBefore(block, before);
+  });
+  updateCBlockBody(body);
+  updateAllCBlockBodies();
 }
 
 function isPointInStage(event) {
@@ -892,7 +1019,13 @@ async function runCurrentScript() {
     return;
   }
 
-  const script = scriptOrder.slice(1).map(getScriptCommand).filter(Boolean);
+  const scriptResult = buildScriptCommands(scriptOrder.slice(1));
+  if (!scriptResult.ok) {
+    statusMessage.textContent = t(scriptResult.errorKey);
+    return;
+  }
+
+  const script = scriptResult.commands;
   if (script.length === 0) {
     statusMessage.textContent = t("addBlocksBelowStart");
     return;
@@ -911,6 +1044,51 @@ async function runCurrentScript() {
   } finally {
     setBusy(false);
   }
+}
+
+function buildScriptCommands(blocksToRun) {
+  const commands = [];
+
+  for (const block of blocksToRun) {
+    if (block.dataset.command !== "repeat") {
+      const command = getScriptCommand(block);
+      if (command) commands.push(command);
+      continue;
+    }
+
+    const body = block.querySelector(":scope > .c-block-body");
+    const childBlocks = body ? getBodyBlocks(body) : [];
+    if (childBlocks.length === 0) {
+      return { ok: false, errorKey: "repeatNeedsBlock", commands: [] };
+    }
+
+    const repeatCommand = getScriptCommand(block);
+    const childResult = buildScriptCommands(childBlocks);
+    if (!childResult.ok) return childResult;
+
+    const times = clampNumber(repeatCommand?.args?.times, 1, 20, 1);
+    for (let count = 0; count < times; count += 1) {
+      childResult.commands.forEach((entry) => {
+        commands.push(cloneCommandEntry(entry));
+      });
+    }
+  }
+
+  return { ok: true, commands };
+}
+
+function clampNumber(value, minimum, maximum, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(minimum, Math.min(maximum, Math.round(number)));
+}
+
+function cloneCommandEntry(entry) {
+  if (typeof entry === "string") return entry;
+  return {
+    command: entry.command,
+    args: { ...(entry.args || {}) },
+  };
 }
 
 function getScriptCommand(block) {

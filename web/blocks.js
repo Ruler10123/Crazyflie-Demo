@@ -90,6 +90,19 @@ window.BLOCK_DEFINITIONS = [
     ],
   },
   {
+    command: "repeat",
+    label: { en: "repeat", fr: "répéter" },
+    style: "control",
+    description: {
+      en: "Repeat the blocks placed inside this C block.",
+      fr: "Répéter les blocs placés dans ce bloc C.",
+    },
+    container: true,
+    inputs: [
+      { name: "times", label: { en: "times", fr: "fois" }, type: "number", value: 2, min: 1, max: 20, step: 1 },
+    ],
+  },
+  {
     command: "land",
     label: { en: "land", fr: "atterrir" },
     style: "stop",

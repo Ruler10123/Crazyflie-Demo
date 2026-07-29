@@ -476,6 +476,47 @@ select {
   background: var(--teal);
 }
 
+.block.control {
+  background: var(--purple);
+}
+
+.block.c-block {
+  align-items: flex-start;
+  padding-bottom: 12px;
+}
+
+.c-block-body {
+  display: grid;
+  gap: 8px;
+  flex: 0 0 100%;
+  min-height: 54px;
+  margin: 5px 0 0 18px;
+  padding: 10px 10px 12px;
+  border-radius: 6px 6px 14px 6px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 5px 0 0 rgba(255, 255, 255, 0.28);
+}
+
+.c-block-body.drop-target {
+  outline: 3px solid rgba(32, 119, 242, 0.35);
+  outline-offset: 2px;
+}
+
+.c-block-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  border: 2px dashed rgba(24, 32, 51, 0.22);
+  border-radius: 6px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.c-block-placeholder[hidden] {
+  display: none;
+}
+
 .block.stop {
   background: var(--red);
 }
@@ -702,6 +743,19 @@ select {
   position: fixed;
   z-index: 1000;
   pointer-events: none;
+}
+
+.drag-layer * {
+  pointer-events: none;
+}
+
+.c-block-body > .script-block {
+  position: relative;
+  left: auto;
+  top: auto;
+  min-width: 0;
+  max-width: none;
+  width: 100%;
 }
 
 .floating-block {
