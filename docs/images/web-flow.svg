@@ -1,50 +1,74 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="980" height="500" viewBox="0 0 980 500" role="img" aria-labelledby="title desc">
-  <title id="title">Web operation flow</title>
-  <desc id="desc">Scan, select URI, connect, switch to blocks, drag commands, and press start.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Crazyflie Blocks web flow</title>
+  <desc id="desc">The main web flow: scan, select URI, connect, choose blocks, drag blocks, and start.</desc>
   <defs>
-    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
-      <path d="M2 2 L10 6 L2 10 Z" fill="#475569"/>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2 L12 7 L2 12 Z" fill="#475569"/>
     </marker>
   </defs>
-  <rect width="980" height="500" fill="#f7f4ec"/>
-  <rect x="52" y="62" width="190" height="118" rx="12" fill="#ffffff" stroke="#c7b99f" stroke-width="3"/>
-  <circle cx="83" cy="95" r="18" fill="#f2c14e"/>
-  <text x="83" y="102" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#422006">1</text>
-  <text x="147" y="98" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">Scan</text>
-  <text x="147" y="134" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#4f5b62">find Crazyflie URI</text>
-  <rect x="297" y="62" width="190" height="118" rx="12" fill="#ffffff" stroke="#c7b99f" stroke-width="3"/>
-  <circle cx="328" cy="95" r="18" fill="#f2c14e"/>
-  <text x="328" y="102" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#422006">2</text>
-  <text x="392" y="98" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">Select URI</text>
-  <text x="392" y="134" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#4f5b62">choose available drone</text>
-  <rect x="542" y="62" width="190" height="118" rx="12" fill="#ffffff" stroke="#c7b99f" stroke-width="3"/>
-  <circle cx="573" cy="95" r="18" fill="#f2c14e"/>
-  <text x="573" y="102" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#422006">3</text>
-  <text x="637" y="98" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">Connect</text>
-  <text x="637" y="134" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#4f5b62">motors pulse briefly</text>
-  <rect x="787" y="62" width="140" height="118" rx="12" fill="#ffffff" stroke="#c7b99f" stroke-width="3"/>
-  <circle cx="818" cy="95" r="18" fill="#f2c14e"/>
-  <text x="818" y="102" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#422006">4</text>
-  <text x="857" y="98" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">Blocks</text>
-  <text x="857" y="134" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#4f5b62">open tab 2</text>
-  <path d="M244 121 H292" stroke="#475569" stroke-width="5" marker-end="url(#arrow)"/>
-  <path d="M489 121 H537" stroke="#475569" stroke-width="5" marker-end="url(#arrow)"/>
-  <path d="M734 121 H782" stroke="#475569" stroke-width="5" marker-end="url(#arrow)"/>
-  <rect x="90" y="274" width="220" height="130" rx="12" fill="#fff7ed" stroke="#fb923c" stroke-width="3"/>
-  <text x="200" y="315" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#9a3412">Drag blocks</text>
-  <rect x="134" y="340" width="132" height="34" rx="17" fill="#fb923c"/>
-  <text x="200" y="363" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#ffffff">start</text>
-  <rect x="380" y="254" width="220" height="170" rx="12" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
-  <text x="490" y="294" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">Script area</text>
-  <rect x="428" y="316" width="124" height="30" rx="15" fill="#f59e0b"/>
-  <text x="490" y="337" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#ffffff">start</text>
-  <rect x="418" y="354" width="144" height="30" rx="15" fill="#10b981"/>
-  <text x="490" y="375" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#ffffff">spin fans 1 sec</text>
-  <rect x="690" y="274" width="200" height="130" rx="12" fill="#ecfeff" stroke="#0891b2" stroke-width="3"/>
-  <circle cx="790" cy="331" r="36" fill="#22c55e"/>
-  <path d="M777 331 L786 342 L806 316" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="790" y="382" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#155e75">Start</text>
-  <path d="M313 339 H375" stroke="#475569" stroke-width="5" marker-end="url(#arrow)"/>
-  <path d="M604 339 H684" stroke="#475569" stroke-width="5" marker-end="url(#arrow)"/>
-  <text x="490" y="466" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#263238">Always keep the drone flat, propeller area clear, and use Stop if anything looks wrong.</text>
+  <rect width="1200" height="620" fill="#f7f4ec"/>
+  <text x="600" y="56" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#263238">Web Operation Flow</text>
+
+  <g font-family="Arial, sans-serif">
+    <g transform="translate(62 110)">
+      <rect width="190" height="128" rx="16" fill="#ffffff" stroke="#c7b99f" stroke-width="3"/>
+      <circle cx="28" cy="40" r="22" fill="#f2c14e"/>
+      <text x="28" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#422006">1</text>
+      <text x="110" y="58" text-anchor="middle" font-size="28" font-weight="700" fill="#263238">Scan</text>
+      <text x="110" y="94" text-anchor="middle" font-size="18" fill="#4f5b62">find drone</text>
+    </g>
+    <g transform="translate(320 110)">
+      <rect width="210" height="128" rx="16" fill="#ffffff" stroke="#c7b99f" stroke-width="3"/>
+      <circle cx="28" cy="40" r="22" fill="#f2c14e"/>
+      <text x="28" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#422006">2</text>
+      <text x="126" y="58" text-anchor="middle" font-size="28" font-weight="700" fill="#263238">Select URI</text>
+      <text x="126" y="94" text-anchor="middle" font-size="18" fill="#4f5b62">choose available</text>
+    </g>
+    <g transform="translate(600 110)">
+      <rect width="210" height="128" rx="16" fill="#ffffff" stroke="#c7b99f" stroke-width="3"/>
+      <circle cx="28" cy="40" r="22" fill="#f2c14e"/>
+      <text x="28" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#422006">3</text>
+      <text x="126" y="58" text-anchor="middle" font-size="28" font-weight="700" fill="#263238">Connect</text>
+      <text x="126" y="94" text-anchor="middle" font-size="18" fill="#4f5b62">identify pulse</text>
+    </g>
+    <g transform="translate(880 110)">
+      <rect width="190" height="128" rx="16" fill="#ffffff" stroke="#c7b99f" stroke-width="3"/>
+      <circle cx="28" cy="40" r="22" fill="#f2c14e"/>
+      <text x="28" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#422006">4</text>
+      <text x="112" y="58" text-anchor="middle" font-size="28" font-weight="700" fill="#263238">Blocks</text>
+      <text x="112" y="94" text-anchor="middle" font-size="18" fill="#4f5b62">open tab</text>
+    </g>
+  </g>
+
+  <path d="M258 174 H312" stroke="#475569" stroke-width="6" marker-end="url(#arrow)"/>
+  <path d="M538 174 H592" stroke="#475569" stroke-width="6" marker-end="url(#arrow)"/>
+  <path d="M818 174 H872" stroke="#475569" stroke-width="6" marker-end="url(#arrow)"/>
+
+  <g transform="translate(158 350)" font-family="Arial, sans-serif">
+    <rect width="250" height="132" rx="16" fill="#fff7ed" stroke="#fb923c" stroke-width="3"/>
+    <text x="125" y="48" text-anchor="middle" font-size="28" font-weight="700" fill="#9a3412">Drag Blocks</text>
+    <rect x="62" y="74" width="126" height="36" rx="18" fill="#fb923c"/>
+    <text x="125" y="98" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">start</text>
+  </g>
+
+  <g transform="translate(500 326)" font-family="Arial, sans-serif">
+    <rect width="260" height="180" rx="16" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+    <text x="130" y="48" text-anchor="middle" font-size="27" font-weight="700" fill="#263238">Script Area</text>
+    <rect x="70" y="78" width="120" height="34" rx="17" fill="#f59e0b"/>
+    <text x="130" y="101" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">start</text>
+    <rect x="48" y="122" width="164" height="34" rx="17" fill="#10b981"/>
+    <text x="130" y="145" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">spin fans 1s</text>
+  </g>
+
+  <g transform="translate(852 350)" font-family="Arial, sans-serif">
+    <rect width="220" height="132" rx="16" fill="#ecfeff" stroke="#0891b2" stroke-width="3"/>
+    <circle cx="110" cy="52" r="36" fill="#22c55e"/>
+    <path d="M98 38 L98 66 L124 52 Z" fill="#ffffff"/>
+    <text x="110" y="104" text-anchor="middle" font-size="28" font-weight="700" fill="#155e75">Start</text>
+  </g>
+
+  <path d="M414 416 H492" stroke="#475569" stroke-width="6" marker-end="url(#arrow)"/>
+  <path d="M768 416 H844" stroke="#475569" stroke-width="6" marker-end="url(#arrow)"/>
+  <rect x="174" y="550" width="852" height="42" rx="14" fill="#ffffff" stroke="#d1c7b7" stroke-width="2"/>
+  <text x="600" y="577" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#263238">If anything looks wrong during flight, press Stop first.</text>
 </svg>

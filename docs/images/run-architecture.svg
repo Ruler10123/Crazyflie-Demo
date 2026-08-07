@@ -1,36 +1,58 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430" role="img" aria-labelledby="title desc">
-  <title id="title">Run architecture</title>
-  <desc id="desc">Terminal starts Python server, browser opens localhost, backend communicates through cflib to Crazyradio and Crazyflie.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Crazyflie Blocks run architecture</title>
+  <desc id="desc">Terminal starts the Python server, browser opens localhost, and the backend controls Crazyflie through Crazyradio.</desc>
   <defs>
-    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
-      <path d="M2 2 L10 6 L2 10 Z" fill="#334155"/>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2 L12 7 L2 12 Z" fill="#334155"/>
     </marker>
   </defs>
-  <rect width="960" height="430" fill="#f8fafc"/>
-  <rect x="54" y="70" width="230" height="150" rx="10" fill="#111827"/>
-  <circle cx="78" cy="92" r="7" fill="#ef4444"/>
-  <circle cx="101" cy="92" r="7" fill="#f59e0b"/>
-  <circle cx="124" cy="92" r="7" fill="#10b981"/>
-  <text x="80" y="135" font-family="Menlo, Consolas, monospace" font-size="20" fill="#d1fae5">$ cd Crazyflie-Demo</text>
-  <text x="80" y="170" font-family="Menlo, Consolas, monospace" font-size="20" fill="#d1fae5">$ python3 server.py</text>
-  <text x="169" y="252" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">Terminal</text>
-  <rect x="378" y="70" width="230" height="150" rx="14" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
-  <rect x="378" y="70" width="230" height="38" rx="14" fill="#e2e8f0"/>
-  <text x="493" y="96" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#334155">http://127.0.0.1:8765</text>
-  <rect x="404" y="128" width="178" height="62" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
-  <text x="493" y="165" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#92400e">Blocks UI</text>
-  <text x="493" y="252" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">Browser</text>
-  <rect x="708" y="70" width="200" height="150" rx="14" fill="#ecfeff" stroke="#0891b2" stroke-width="3"/>
-  <text x="808" y="126" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#155e75">Python Backend</text>
-  <text x="808" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#155e75">server.py + cflib</text>
-  <text x="808" y="252" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">Local server</text>
-  <path d="M286 145 H374" stroke="#334155" stroke-width="5" marker-end="url(#arrow)"/>
-  <path d="M610 145 H704" stroke="#334155" stroke-width="5" marker-end="url(#arrow)"/>
-  <rect x="195" y="320" width="160" height="54" rx="12" fill="#f2c14e" stroke="#a16207" stroke-width="3"/>
-  <text x="275" y="354" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#713f12">Crazyradio</text>
-  <rect x="602" y="306" width="180" height="82" rx="20" fill="#fee2e2" stroke="#dc2626" stroke-width="3"/>
-  <text x="692" y="340" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#991b1b">Crazyflie drone</text>
-  <text x="692" y="366" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#991b1b">motors controlled by blocks</text>
-  <path d="M808 222 C784 298 590 346 360 346" fill="none" stroke="#0891b2" stroke-width="5" marker-end="url(#arrow)"/>
-  <path d="M356 346 H596" stroke="#334155" stroke-width="5" stroke-dasharray="12 10" marker-end="url(#arrow)"/>
+  <rect width="1200" height="620" fill="#f8fafc"/>
+  <text x="600" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#0f172a">How It Runs</text>
+
+  <g transform="translate(72 118)">
+    <rect width="260" height="170" rx="16" fill="#111827"/>
+    <circle cx="30" cy="30" r="8" fill="#ef4444"/>
+    <circle cx="56" cy="30" r="8" fill="#f59e0b"/>
+    <circle cx="82" cy="30" r="8" fill="#10b981"/>
+    <text x="30" y="82" font-family="Menlo, Consolas, monospace" font-size="18" fill="#d1fae5">$ cd Crazyflie-Demo</text>
+    <text x="30" y="118" font-family="Menlo, Consolas, monospace" font-size="18" fill="#d1fae5">$ python3 server.py</text>
+    <text x="130" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a">Terminal</text>
+  </g>
+
+  <g transform="translate(468 118)">
+    <rect width="270" height="170" rx="16" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+    <rect width="270" height="44" rx="16" fill="#e2e8f0"/>
+    <text x="135" y="29" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#334155">127.0.0.1:8765</text>
+    <rect x="36" y="76" width="198" height="56" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+    <text x="135" y="112" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#92400e">Blocks UI</text>
+    <text x="135" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a">Browser</text>
+  </g>
+
+  <g transform="translate(870 118)">
+    <rect width="250" height="170" rx="16" fill="#ecfeff" stroke="#0891b2" stroke-width="3"/>
+    <text x="125" y="76" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#155e75">server.py</text>
+    <text x="125" y="114" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#155e75">Python + cflib</text>
+    <text x="125" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a">Backend</text>
+  </g>
+
+  <path d="M350 222 H448" stroke="#334155" stroke-width="6" marker-end="url(#arrow)"/>
+  <text x="399" y="176" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#334155">open URL</text>
+  <path d="M758 222 H850" stroke="#334155" stroke-width="6" marker-end="url(#arrow)"/>
+  <text x="804" y="176" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#334155">API calls</text>
+
+  <g transform="translate(254 420)">
+    <rect width="210" height="64" rx="16" fill="#f2c14e" stroke="#a16207" stroke-width="4"/>
+    <text x="105" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#713f12">Crazyradio</text>
+  </g>
+
+  <g transform="translate(738 398)">
+    <rect width="250" height="108" rx="26" fill="#fee2e2" stroke="#dc2626" stroke-width="4"/>
+    <text x="125" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#991b1b">Crazyflie</text>
+    <text x="125" y="78" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#991b1b">runs block commands</text>
+  </g>
+
+  <path d="M995 292 C960 380 628 452 476 452" fill="none" stroke="#0891b2" stroke-width="6" marker-end="url(#arrow)"/>
+  <text x="770" y="386" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#155e75">cflib link</text>
+  <path d="M476 452 H724" stroke="#334155" stroke-width="6" stroke-dasharray="14 12" marker-end="url(#arrow)"/>
+  <text x="600" y="434" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#334155">radio</text>
 </svg>

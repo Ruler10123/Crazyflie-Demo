@@ -1,35 +1,47 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
   <title id="title">Crazyflie hardware setup</title>
-  <desc id="desc">Computer with Crazyradio USB dongle communicating wirelessly with a powered-on Crazyflie drone.</desc>
+  <desc id="desc">Computer, Crazyradio USB dongle, and Crazyflie drone hardware setup.</desc>
   <defs>
-    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
-      <path d="M2 2 L10 6 L2 10 Z" fill="#2f6f73"/>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2 L12 7 L2 12 Z" fill="#25636a"/>
     </marker>
   </defs>
-  <rect width="960" height="420" fill="#f7f4ec"/>
-  <rect x="60" y="96" width="260" height="170" rx="14" fill="#38424a"/>
-  <rect x="82" y="118" width="216" height="116" rx="6" fill="#dfeaf0"/>
-  <rect x="144" y="266" width="92" height="22" fill="#38424a"/>
-  <rect x="118" y="288" width="144" height="18" rx="9" fill="#59666f"/>
-  <text x="190" y="172" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">Computer</text>
-  <text x="190" y="206" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#4f5b62">runs server.py</text>
-  <rect x="322" y="164" width="96" height="34" rx="10" fill="#f2c14e" stroke="#8b6f20" stroke-width="3"/>
-  <rect x="410" y="173" width="42" height="16" rx="8" fill="#8b6f20"/>
-  <text x="370" y="151" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#263238">Crazyradio USB</text>
-  <path d="M470 180 C540 112 638 112 710 180" fill="none" stroke="#2f6f73" stroke-width="6" stroke-dasharray="12 12" marker-end="url(#arrow)"/>
-  <text x="590" y="104" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#2f6f73">radio link</text>
-  <g transform="translate(735 120)">
-    <circle cx="0" cy="0" r="43" fill="#e9f4f5" stroke="#2f6f73" stroke-width="5"/>
-    <circle cx="150" cy="0" r="43" fill="#e9f4f5" stroke="#2f6f73" stroke-width="5"/>
-    <circle cx="0" cy="120" r="43" fill="#e9f4f5" stroke="#2f6f73" stroke-width="5"/>
-    <circle cx="150" cy="120" r="43" fill="#e9f4f5" stroke="#2f6f73" stroke-width="5"/>
-    <line x1="30" y1="30" x2="120" y2="90" stroke="#59666f" stroke-width="12" stroke-linecap="round"/>
-    <line x1="120" y1="30" x2="30" y2="90" stroke="#59666f" stroke-width="12" stroke-linecap="round"/>
-    <rect x="53" y="38" width="44" height="44" rx="10" fill="#f05d5e"/>
-    <circle cx="75" cy="60" r="9" fill="#fff6d6"/>
-    <text x="75" y="178" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#263238">Crazyflie</text>
-    <text x="75" y="204" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#4f5b62">powered on, flat area</text>
+  <rect width="1200" height="560" fill="#f7f4ec"/>
+  <text x="600" y="54" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#263238">Hardware Setup</text>
+
+  <g transform="translate(92 128)">
+    <rect width="300" height="192" rx="18" fill="#34424a"/>
+    <rect x="28" y="26" width="244" height="126" rx="8" fill="#dfeaf0"/>
+    <rect x="105" y="192" width="90" height="28" fill="#34424a"/>
+    <rect x="68" y="220" width="164" height="20" rx="10" fill="#59666f"/>
+    <text x="150" y="92" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#263238">Computer</text>
+    <text x="150" y="128" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#455a64">runs server.py</text>
+    <text x="150" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">1. Control computer</text>
   </g>
-  <rect x="76" y="336" width="808" height="46" rx="12" fill="#fff" stroke="#d1c7b7"/>
-  <text x="480" y="365" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#263238">The computer running server.py must be the same computer with Crazyradio plugged in.</text>
+
+  <g transform="translate(465 220)">
+    <rect width="138" height="48" rx="14" fill="#f2c14e" stroke="#8a6414" stroke-width="4"/>
+    <rect x="126" y="13" width="58" height="22" rx="11" fill="#8a6414"/>
+    <text x="72" y="-26" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">Crazyradio</text>
+    <text x="72" y="96" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#455a64">USB dongle</text>
+  </g>
+
+  <path d="M634 244 C712 146 846 146 928 244" fill="none" stroke="#25636a" stroke-width="7" stroke-dasharray="16 14" marker-end="url(#arrow)"/>
+  <text x="782" y="132" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#25636a">radio link</text>
+
+  <g transform="translate(890 118)">
+    <circle cx="40" cy="40" r="44" fill="#e9f4f5" stroke="#25636a" stroke-width="5"/>
+    <circle cx="190" cy="40" r="44" fill="#e9f4f5" stroke="#25636a" stroke-width="5"/>
+    <circle cx="40" cy="190" r="44" fill="#e9f4f5" stroke="#25636a" stroke-width="5"/>
+    <circle cx="190" cy="190" r="44" fill="#e9f4f5" stroke="#25636a" stroke-width="5"/>
+    <line x1="75" y1="75" x2="155" y2="155" stroke="#59666f" stroke-width="14" stroke-linecap="round"/>
+    <line x1="155" y1="75" x2="75" y2="155" stroke="#59666f" stroke-width="14" stroke-linecap="round"/>
+    <rect x="91" y="91" width="48" height="48" rx="12" fill="#f05d5e"/>
+    <circle cx="115" cy="115" r="9" fill="#fff6d6"/>
+    <text x="115" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#263238">2. Crazyflie</text>
+    <text x="115" y="322" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#455a64">power on first</text>
+  </g>
+
+  <rect x="166" y="492" width="868" height="44" rx="14" fill="#ffffff" stroke="#d1c7b7" stroke-width="2"/>
+  <text x="600" y="521" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#263238">server.py and Crazyradio must be on the same computer.</text>
 </svg>
