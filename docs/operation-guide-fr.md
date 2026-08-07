@@ -111,7 +111,8 @@ Lorsque le test moteur fonctionne, essayez un script de vol simple :
 
 ## 7. Utilisation de l'interface
 
-![Crazyflie Blocks UI map](images/ui-map.svg)
+![Crazyflie Blocks UI map](images/UI_connect.png)
+![Crazyflie Blocks UI map](images/UI_block.png)
 
 ### A. État de connexion et zone de marque
 

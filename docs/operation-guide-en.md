@@ -111,7 +111,8 @@ After the motor test works, try a basic flight script:
 
 ## 7. UI Operation
 
-![Crazyflie Blocks UI map](images/ui-map.svg)
+![Crazyflie Blocks UI map](images/UI_connect.png)
+![Crazyflie Blocks UI map](images/UI_block.png)
 
 ### A. Connection Status and Brand Area
 

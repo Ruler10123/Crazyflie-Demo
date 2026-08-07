@@ -110,8 +110,8 @@ http://127.0.0.1:8765
 4. `land`
 
 ## 7. UI 操作說明
-
-![Crazyflie Blocks UI map](images/ui-map.svg)
+![Crazyflie Blocks UI map](images/UI_connect.png)
+![Crazyflie Blocks UI map](images/UI_block.png)
 
 ### A. 連線狀態與品牌
 
