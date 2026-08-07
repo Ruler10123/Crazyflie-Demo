@@ -101,6 +101,26 @@ def right(scf, degrees=90, duration_seconds=None, yaw_rate=-0.5, thrust=9000, mc
     time.sleep(0.2)
 
 
+def left(scf, degrees=90, duration_seconds=None, yaw_rate=0.5, thrust=9000, mc=None):
+    degrees = clamp_number(degrees, 1.0, 360.0, 90.0)
+    if mc is not None:
+        mc.turn_left(degrees)
+        return
+
+    if duration_seconds is None:
+        duration_seconds = degrees / 90.0
+    duration_seconds = clamp_number(duration_seconds, 0.1, 4.0, 1.0)
+    yaw_rate = abs(clamp_number(yaw_rate, 0.1, 2.0, 0.5))
+    thrust = int(clamp_number(thrust, 8000, 14000, 9000))
+    end_time = time.monotonic() + duration_seconds
+    while time.monotonic() < end_time and not cancellation.stopping():
+        scf.cf.commander.send_setpoint(0.0, 0.0, yaw_rate, thrust)
+        if cancellation.sleep(0.05):
+            break
+    scf.cf.commander.send_setpoint(0.0, 0.0, 0.0, thrust)
+    time.sleep(0.2)
+
+
 def land(scf):
     stop_drone(scf)
     time.sleep(0.1)
@@ -113,6 +133,7 @@ BLOCK_FUNCTIONS = {
     "takeoff": takeoff,
     "forward": forward,
     "right": right,
+    "left": left,
     "land": land,
     "move_linear_simple": move_linear_simple,
     "figure_eight": figure_eight,

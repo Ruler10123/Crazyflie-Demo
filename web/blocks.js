@@ -42,6 +42,15 @@ window.BLOCK_DEFINITIONS = [
     ],
   },
   {
+    command: "left",
+    label: { en: "turn left", fr: "tourner à gauche" },
+    style: "motion",
+    description: { en: "Rotate the Crazyflie 90 degrees to the left.", fr: "Faire tourner le Crazyflie de 90 degrés vers la gauche." },
+    inputs: [
+      { name: "degrees", label: { en: "angle deg", fr: "angle deg" }, type: "number", value: 90, min: 1, max: 360, step: 1 },
+    ],
+  },
+  {
     command: "move_linear_simple",
     label: { en: "move linear", fr: "trajet linéaire" },
     style: "motion",
@@ -99,7 +108,7 @@ window.BLOCK_DEFINITIONS = [
     },
     container: true,
     inputs: [
-      { name: "times", label: { en: "times", fr: "fois" }, type: "number", value: 2, min: 1, max: 20, step: 1 },
+      { name: "times", label: { en: "times", fr: "fois" }, type: "number", value: 2, min: 1, step: 1 },
     ],
   },
   {

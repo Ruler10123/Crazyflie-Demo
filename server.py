@@ -25,7 +25,7 @@ CACHE_DIR = ROOT / ".cache" / "cflib"
 CONNECT_TIMEOUT_SECONDS = 15
 PROBE_TIMEOUT_SECONDS = 8
 POWER_LOG_TIMEOUT_SECONDS = 2
-MOTION_COMMANDS = {"takeoff", "forward", "right", "move_linear_simple", "figure_eight"}
+MOTION_COMMANDS = {"takeoff", "forward", "right", "left", "move_linear_simple", "figure_eight"}
 
 
 def close_link_quietly(scf):

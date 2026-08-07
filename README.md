@@ -2,6 +2,12 @@
 
 A local Scratch-like web controller for Crazyflie. The browser shows the block UI, and the Python backend talks to the drone through `cflib`.
 
+Operation guides with pictures:
+
+- [Traditional Chinese](docs/operation-guide.md)
+- [English](docs/operation-guide-en.md)
+- [French](docs/operation-guide-fr.md)
+
 ## Requirements
 
 - Python 3

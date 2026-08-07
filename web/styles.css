@@ -36,7 +36,7 @@ input {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 460px minmax(0, 1fr);
+  grid-template-columns: 560px minmax(0, 1fr);
   min-height: 100vh;
 }
 

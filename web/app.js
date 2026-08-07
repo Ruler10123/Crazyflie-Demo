@@ -64,6 +64,13 @@ const DEFAULT_BLOCK_DEFINITIONS = [
     inputs: [{ name: "degrees", label: { en: "angle deg", fr: "angle deg" }, type: "number", value: 90, min: 1, max: 360, step: 1 }],
   },
   {
+    command: "left",
+    label: { en: "turn left", fr: "tourner à gauche" },
+    style: "motion",
+    description: { en: "Rotate the Crazyflie 90 degrees to the left.", fr: "Faire tourner le Crazyflie de 90 degrés vers la gauche." },
+    inputs: [{ name: "degrees", label: { en: "angle deg", fr: "angle deg" }, type: "number", value: 90, min: 1, max: 360, step: 1 }],
+  },
+  {
     command: "move_linear_simple",
     label: { en: "move linear", fr: "trajet linéaire" },
     style: "motion",
@@ -100,7 +107,7 @@ const DEFAULT_BLOCK_DEFINITIONS = [
     style: "control",
     description: { en: "Repeat the blocks placed inside this C block.", fr: "Répéter les blocs placés dans ce bloc C." },
     container: true,
-    inputs: [{ name: "times", label: { en: "times", fr: "fois" }, type: "number", value: 2, min: 1, max: 20, step: 1 }],
+    inputs: [{ name: "times", label: { en: "times", fr: "fois" }, type: "number", value: 2, min: 1, step: 1 }],
   },
   { command: "take_off_simple", label: { en: "take off simple", fr: "décollage simple" }, style: "motion", description: { en: "Take off, hover for 3 seconds, then land.", fr: "Décoller, rester en vol stationnaire pendant 3 secondes, puis atterrir." } },
   {
@@ -310,7 +317,7 @@ function updateBlockLanguage() {
     if (!definition) return;
     const label = block.querySelector(".block-label");
     if (label) label.textContent = localizedText(definition.label);
-    block.title = localizedText(definition.description);
+    block.removeAttribute("title");
     block.querySelectorAll(".block-input-wrap").forEach((wrapper) => {
       const input = wrapper.querySelector(".block-input");
       const unit = wrapper.querySelector(".block-input-unit");
@@ -640,7 +647,7 @@ function renderBlockToolbox() {
     block.className = `block ${definition.style}`;
     block.draggable = false;
     block.dataset.command = definition.command;
-    block.title = localizedText(definition.description);
+    block.removeAttribute("title");
     block.role = "button";
     block.tabIndex = 0;
     renderBlockContent(block, definition);
@@ -1213,7 +1220,7 @@ function buildScriptCommands(blocksToRun) {
     const childResult = buildScriptCommands(childBlocks);
     if (!childResult.ok) return childResult;
 
-    const times = clampNumber(repeatCommand?.args?.times, 1, 20, 1);
+    const times = clampMinNumber(repeatCommand?.args?.times, 1, 1);
     for (let count = 0; count < times; count += 1) {
       childResult.commands.forEach((entry) => {
         commands.push(cloneCommandEntry(entry));
@@ -1228,6 +1235,12 @@ function clampNumber(value, minimum, maximum, fallback) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.max(minimum, Math.min(maximum, Math.round(number)));
+}
+
+function clampMinNumber(value, minimum, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(minimum, Math.round(number));
 }
 
 function cloneCommandEntry(entry) {
